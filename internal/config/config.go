@@ -67,5 +67,10 @@ func Load(path string) (Config, error) {
 	if c.CheckpointInterval == 0 {
 		c.CheckpointInterval = time.Hour
 	}
+	// rate_limits.default 漏設 → 0 會讓 token bucket 靜默丟光所有 ingest。
+	// 補成 spec 的預設 1000。(overrides 的 0 是合法的「靜音某 service」,不動。)
+	if c.RateLimits.Default == 0 {
+		c.RateLimits.Default = 1000
+	}
 	return c, nil
 }
