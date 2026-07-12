@@ -35,4 +35,13 @@ func TestHealth(t *testing.T) {
 	if resp["status"] != "ok" || resp["disk_usage"].(float64) != 0.42 {
 		t.Fatalf("resp = %v", resp)
 	}
+	if resp["last_checkpoint"] != nil {
+		t.Fatalf("last_checkpoint = %v, want null", resp["last_checkpoint"])
+	}
+	if _, ok := resp["catalog_size_mb"].(float64); !ok {
+		t.Fatalf("catalog_size_mb missing or not a number: %v", resp["catalog_size_mb"])
+	}
+	if resp["dropped_last_hour"] != float64(0) {
+		t.Fatalf("dropped_last_hour = %v, want 0", resp["dropped_last_hour"])
+	}
 }
