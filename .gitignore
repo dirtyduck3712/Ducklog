@@ -1,0 +1,6 @@
+data/
+/docklog
+*.duckdb
+*.ducklake
+*.ducklake.wal
+crashbin
