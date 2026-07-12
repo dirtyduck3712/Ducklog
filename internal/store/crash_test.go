@@ -51,6 +51,12 @@ func TestCrashDuringIngestKeepsCommittedData(t *testing.T) {
 		t.Fatalf("crash 後 Count 失敗: %v", err)
 	}
 	t.Logf("crash 後 DB count=%d,已 commit(counter 檔)=%d", n, committed)
+	// 防止 vacuous pass:若 helper 一筆都沒 commit(store.Open panic / schema 不符 /
+	// 開機即崩),counter 檔缺席 → committed=0、重開空 dir → count=0,兩個不變式都成立
+	// 而綠燈通過。要求至少一個完整 batch 已 commit,證明 crash 真的落在 ingest 途中。
+	if committed < 50 {
+		t.Fatalf("helper 只 commit 了 %d 筆(<一個 batch)—— crash 未發生在 ingest 途中,或 store 根本沒動作;測試無意義", committed)
+	}
 	if n%50 != 0 {
 		t.Fatalf("原子性違反:count %d 非 50 倍數 → 有半個 transaction", n)
 	}
