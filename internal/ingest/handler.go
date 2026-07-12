@@ -103,10 +103,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			e.Attrs = mergeAttr(e.Attrs, "_level_unknown", raw.Level)
 		}
 		// 非空且非 canonical UUID 的 trace_id 會毒死整個 batch:改寫 NULL 並標記。
+		// 有效者一律正規化成 canonical 8-4-4-4-12,確保進 ?::UUID 的格式永遠可接受。
 		if raw.TraceID != "" {
-			if _, err := uuid.Parse(raw.TraceID); err != nil {
+			if parsed, err := uuid.Parse(raw.TraceID); err != nil {
 				e.TraceID = ""
 				e.Attrs = mergeAttr(e.Attrs, "_trace_id_invalid", raw.TraceID)
+			} else {
+				e.TraceID = parsed.String()
 			}
 		}
 		applyClockSkew(&e, now)

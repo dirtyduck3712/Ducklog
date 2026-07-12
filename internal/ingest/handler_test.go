@@ -157,6 +157,24 @@ func TestInvalidTraceIDDoesNotFailBatch(t *testing.T) {
 	}
 }
 
+// Fix I-1 (canonicalization):有效但非 canonical 的 trace_id(如 brace-wrapped)也不能
+// 毒死 batch,必須正規化成 8-4-4-4-12 後才進 ?::UUID。
+func TestNonCanonicalTraceIDCanonicalized(t *testing.T) {
+	h, st, _ := newTestHandler(t, 0.10)
+	rr := post(h, "k", `{"ts":"2026-07-13T10:00:00Z","service":"api","level":"info","message":"brace","trace_id":"{0af76519-16cd-43dd-8448-eb211c80319c}"}`)
+	if rr.Code != 200 {
+		t.Fatalf("code=%d body=%s", rr.Code, rr.Body)
+	}
+	var traceID string
+	if err := st.DB().QueryRow(
+		"SELECT trace_id::VARCHAR FROM lake.logs WHERE message='brace'").Scan(&traceID); err != nil {
+		t.Fatal(err)
+	}
+	if traceID != "0af76519-16cd-43dd-8448-eb211c80319c" {
+		t.Fatalf("trace_id=%q; want canonical 0af76519-16cd-43dd-8448-eb211c80319c", traceID)
+	}
+}
+
 // Fix I-3:壞行要計數並回報 malformed,不靜默丟棄。
 func TestMalformedLinesCounted(t *testing.T) {
 	h, st, _ := newTestHandler(t, 0.10)
