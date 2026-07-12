@@ -17,8 +17,11 @@ type RemoteConfig struct {
 	BatchSize     int           // 預設 100
 	QueueSize     int           // channel 容量,預設 10000
 	FlushInterval time.Duration // 預設 1s
-	Fallback      io.Writer     // 雙寫目的地,預設 os.Stdout
-	HTTPClient    *http.Client  // 預設 timeout 2s
+	// Fallback 是雙寫目的地,預設 os.Stdout。必須非阻塞/快速:
+	// Handle 會在呼叫端 goroutine 上同步寫入,阻塞的 Fallback(如卡住的 pipe)
+	// 會連帶阻塞 logging。os.Stdout 沒問題。
+	Fallback   io.Writer
+	HTTPClient *http.Client // 預設 timeout 2s
 }
 
 func (c RemoteConfig) withDefaults() RemoteConfig {

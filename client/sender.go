@@ -14,6 +14,8 @@ const (
 	breakerFailOpen = 5
 	breakerOpenFor  = 30 * time.Second
 	baseBackoff     = 100 * time.Millisecond
+
+	closeDrainTimeout = 5 * time.Second
 )
 
 type sender struct {
@@ -138,6 +140,13 @@ func (s *sender) post(payload []byte) bool {
 
 func (s *sender) close() int64 {
 	s.closeOnce.Do(func() { close(s.quit) })
-	s.wg.Wait()
+	// 上限 5s 的排空:server 死掉且熔斷仍關閉時,排空 backlog 可能耗時
+	// (retries × HTTP timeout),不應無限拖住 defer handler.Close()。
+	done := make(chan struct{})
+	go func() { s.wg.Wait(); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(closeDrainTimeout):
+	}
 	return s.dropped()
 }

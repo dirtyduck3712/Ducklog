@@ -42,16 +42,18 @@ func (h *RemoteHandler) Handle(ctx context.Context, r slog.Record) error {
 	if id, ok := TraceIDFromContext(ctx); ok {
 		e.TraceID = id
 	}
-	// 先放 WithAttrs 的,再放本次 record 的(record 覆蓋)
+	// 先放 WithAttrs 的,再放本次 record 的(record 覆蓋)。
+	// 已知簡化:WithGroup 前加入的 attr 仍會帶上 group 前綴(攤平 wire 模型),
+	// 且 WithGroup("") 不被視為 slog 的 no-op。
 	prefix := ""
 	if len(h.groups) > 0 {
 		prefix = joinGroups(h.groups) + "."
 	}
 	for _, a := range h.attrs {
-		e.Attrs[prefix+a.Key] = a.Value.Any()
+		flattenAttr(e.Attrs, prefix, a)
 	}
 	r.Attrs(func(a slog.Attr) bool {
-		e.Attrs[prefix+a.Key] = a.Value.Any()
+		flattenAttr(e.Attrs, prefix, a)
 		return true
 	})
 
@@ -81,6 +83,26 @@ func (h *RemoteHandler) Close() error {
 			`{"_docklog_client":"shutdown","dropped":%d}`+"\n", dropped)))
 	}
 	return nil
+}
+
+// flattenAttr 解析 slog.LogValuer(避免洩漏被 redact 的原值)並把 inline group
+// 攤平成 "group.key" 形式的鍵。空鍵的非 group attr 依 slog 慣例略過。
+func flattenAttr(dst map[string]any, prefix string, a slog.Attr) {
+	v := a.Value.Resolve() // resolves LogValuer
+	if v.Kind() == slog.KindGroup {
+		g := v.Group()
+		if a.Key != "" {
+			prefix = prefix + a.Key + "."
+		}
+		for _, ga := range g {
+			flattenAttr(dst, prefix, ga)
+		}
+		return
+	}
+	if a.Key == "" { // slog: empty-key non-group attr is elided
+		return
+	}
+	dst[prefix+a.Key] = v.Any()
 }
 
 func joinGroups(g []string) string {
