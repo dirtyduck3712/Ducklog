@@ -7,18 +7,20 @@ import (
 	"log"
 	"sync"
 	"time"
-
-	"docklog/internal/store"
 )
 
+type Checkpointer interface {
+	Checkpoint(ctx context.Context) error
+}
+
 type Loop struct {
-	st       *store.Store
+	st       Checkpointer
 	interval time.Duration
 	mu       sync.Mutex
 	last     time.Time
 }
 
-func NewLoop(st *store.Store, interval time.Duration) *Loop {
+func NewLoop(st Checkpointer, interval time.Duration) *Loop {
 	return &Loop{st: st, interval: interval}
 }
 
