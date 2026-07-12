@@ -1,5 +1,6 @@
 data/
 /docklog
+/config.yaml
 *.duckdb
 *.ducklake
 *.ducklake.wal
