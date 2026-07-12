@@ -83,6 +83,18 @@ func TestHandlerWithAttrs(t *testing.T) {
 	}
 }
 
+func TestDoubleCloseIsSafe(t *testing.T) {
+	h := NewRemoteHandler(RemoteConfig{Endpoint: "http://x", Service: "api",
+		Fallback: io.Discard})
+	if err := h.Close(); err != nil {
+		t.Fatal(err)
+	}
+	// 第二次 Close 不應 panic(close of closed channel)。
+	if err := h.Close(); err != nil {
+		t.Fatalf("second Close 回傳 err: %v", err)
+	}
+}
+
 func TestHandlerNeverBlocks(t *testing.T) {
 	// endpoint 掛住 + queue 極小;大量 log 不應阻塞呼叫端。
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

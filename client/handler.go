@@ -77,8 +77,8 @@ func (h *RemoteHandler) WithGroup(name string) slog.Handler {
 func (h *RemoteHandler) Close() error {
 	dropped := h.snd.close()
 	if dropped > 0 {
-		fmt.Fprintf(h.cfg.Fallback,
-			`{"_docklog_client":"shutdown","dropped":%d}`+"\n", dropped)
+		h.fbMu.writeRaw([]byte(fmt.Sprintf(
+			`{"_docklog_client":"shutdown","dropped":%d}`+"\n", dropped)))
 	}
 	return nil
 }
@@ -101,4 +101,10 @@ func (f *fallbackWriter) writeLine(e entry) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	_ = encodeNDJSON(f.w, []entry{e})
+}
+
+func (f *fallbackWriter) writeRaw(b []byte) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	_, _ = f.w.Write(b)
 }

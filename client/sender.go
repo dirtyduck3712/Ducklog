@@ -23,8 +23,9 @@ type sender struct {
 	sleep   func(time.Duration)
 	dropCnt int64
 
-	quit chan struct{}
-	wg   sync.WaitGroup
+	quit      chan struct{}
+	wg        sync.WaitGroup
+	closeOnce sync.Once
 }
 
 func newSender(cfg RemoteConfig, sleep func(time.Duration), now func() time.Time) *sender {
@@ -136,7 +137,7 @@ func (s *sender) post(payload []byte) bool {
 }
 
 func (s *sender) close() int64 {
-	close(s.quit)
+	s.closeOnce.Do(func() { close(s.quit) })
 	s.wg.Wait()
 	return s.dropped()
 }
