@@ -13,6 +13,7 @@ import (
 	"docklog/internal/auth"
 	"docklog/internal/diskguard"
 	"docklog/internal/metrics"
+	"docklog/internal/model"
 	"docklog/internal/ratelimit"
 	"docklog/internal/store"
 )
@@ -101,6 +102,99 @@ func TestClockSkewOverride(t *testing.T) {
 	}
 	if !strings.Contains(attrs, "_clock_skew") {
 		t.Fatalf("attrs 應含 _clock_skew,得到 %s", attrs)
+	}
+}
+
+// Fix I-2:未知 level 降級為 Info 但明確標記 _level_unknown,不靜默。
+func TestUnknownLevelMarked(t *testing.T) {
+	h, st, _ := newTestHandler(t, 0.10)
+	rr := post(h, "k", `{"ts":"2026-07-13T10:00:00Z","service":"api","level":"fatal","message":"x"}`)
+	if rr.Code != 200 {
+		t.Fatalf("code=%d body=%s", rr.Code, rr.Body)
+	}
+	var level uint8
+	var attrs string
+	if err := st.DB().QueryRow("SELECT level, attrs::VARCHAR FROM lake.logs LIMIT 1").Scan(&level, &attrs); err != nil {
+		t.Fatal(err)
+	}
+	if level != uint8(model.Info) {
+		t.Fatalf("level=%d; want Info(%d)", level, model.Info)
+	}
+	if !strings.Contains(attrs, "_level_unknown") {
+		t.Fatalf("attrs 應含 _level_unknown,得到 %s", attrs)
+	}
+}
+
+// Fix I-1:非 UUID 的 trace_id 不能毒死整個 batch;該列寫 NULL 並標記,其餘照常。
+func TestInvalidTraceIDDoesNotFailBatch(t *testing.T) {
+	h, st, _ := newTestHandler(t, 0.10)
+	body := `{"ts":"2026-07-13T10:00:00Z","service":"api","level":"info","message":"bad","trace_id":"not-a-uuid"}
+{"ts":"2026-07-13T10:00:01Z","service":"api","level":"info","message":"good","trace_id":"550e8400-e29b-41d4-a716-446655440000"}`
+	rr := post(h, "k", body)
+	if rr.Code != 200 {
+		t.Fatalf("code=%d body=%s", rr.Code, rr.Body)
+	}
+	var resp map[string]any
+	json.Unmarshal(rr.Body.Bytes(), &resp)
+	if resp["accepted"].(float64) != 2 {
+		t.Fatalf("accepted=%v; want 2", resp["accepted"])
+	}
+	n, _ := st.Count(context.Background())
+	if n != 2 {
+		t.Fatalf("stored=%d; want 2", n)
+	}
+	var attrs string
+	var traceNull bool
+	if err := st.DB().QueryRow(
+		"SELECT attrs::VARCHAR, trace_id IS NULL FROM lake.logs WHERE message='bad'").Scan(&attrs, &traceNull); err != nil {
+		t.Fatal(err)
+	}
+	if !traceNull {
+		t.Fatal("invalid trace_id 應存 NULL")
+	}
+	if !strings.Contains(attrs, "_trace_id_invalid") {
+		t.Fatalf("attrs 應含 _trace_id_invalid,得到 %s", attrs)
+	}
+}
+
+// Fix I-3:壞行要計數並回報 malformed,不靜默丟棄。
+func TestMalformedLinesCounted(t *testing.T) {
+	h, st, _ := newTestHandler(t, 0.10)
+	body := `{"ts":"2026-07-13T10:00:00Z","service":"api","level":"info","message":"ok"}
+{not json}
+this is garbage
+{"ts":"2026-07-13T10:00:01Z","service":"api","level":"info","message":"ok2"}`
+	rr := post(h, "k", body)
+	if rr.Code != 200 {
+		t.Fatalf("code=%d body=%s", rr.Code, rr.Body)
+	}
+	var resp map[string]any
+	json.Unmarshal(rr.Body.Bytes(), &resp)
+	if resp["malformed"].(float64) != 2 {
+		t.Fatalf("malformed=%v; want 2", resp["malformed"])
+	}
+	if resp["accepted"].(float64) != 2 {
+		t.Fatalf("accepted=%v; want 2", resp["accepted"])
+	}
+	n, _ := st.Count(context.Background())
+	if n != 2 {
+		t.Fatalf("stored=%d; want 2", n)
+	}
+}
+
+// Fix I-3:單行超過 8MB scanner cap 會截斷請求,必須回 400 而非靜默 200。
+func TestOversizeLineReturns400(t *testing.T) {
+	h, _, _ := newTestHandler(t, 0.10)
+	huge := `{"ts":"2026-07-13T10:00:00Z","service":"api","level":"info","message":"` +
+		strings.Repeat("x", 9*1024*1024) + `"}`
+	rr := post(h, "k", huge)
+	if rr.Code != 400 {
+		t.Fatalf("oversize code=%d; want 400", rr.Code)
+	}
+	var resp map[string]any
+	json.Unmarshal(rr.Body.Bytes(), &resp)
+	if resp["error_code"] != "BAD_REQUEST" {
+		t.Fatalf("error_code=%v; want BAD_REQUEST", resp["error_code"])
 	}
 }
 

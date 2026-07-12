@@ -15,6 +15,8 @@ import (
 	"docklog/internal/model"
 	"docklog/internal/ratelimit"
 	"docklog/internal/store"
+
+	"github.com/google/uuid"
 )
 
 type Deps struct {
@@ -74,6 +76,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// 3. 解析 ndjson
 	now := h.d.Now().UTC()
 	var entries []model.LogEntry
+	var malformed int
 	perService := map[string]int{}
 	sc := bufio.NewScanner(r.Body)
 	sc.Buffer(make([]byte, 0, 1024*1024), 8*1024*1024)
@@ -84,7 +87,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		var raw rawLog
 		if err := json.Unmarshal(line, &raw); err != nil {
-			continue // 壞行跳過(第一版寬鬆);TODO 之後計數
+			malformed++ // 壞行不靜默丟棄,計數後回報
+			continue
 		}
 		lvl, ok := model.ParseLevel(raw.Level)
 		if !ok {
@@ -94,9 +98,27 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			TS: raw.TS, IngestedAt: now, Service: raw.Service, Level: lvl,
 			TraceID: raw.TraceID, Message: raw.Message, Attrs: string(raw.Attrs),
 		}
+		// 未知(非空)level 降級為 Info,但明確標記,避免靜默降級。
+		if !ok && raw.Level != "" {
+			e.Attrs = mergeAttr(e.Attrs, "_level_unknown", raw.Level)
+		}
+		// 非空且非 canonical UUID 的 trace_id 會毒死整個 batch:改寫 NULL 並標記。
+		if raw.TraceID != "" {
+			if _, err := uuid.Parse(raw.TraceID); err != nil {
+				e.TraceID = ""
+				e.Attrs = mergeAttr(e.Attrs, "_trace_id_invalid", raw.TraceID)
+			}
+		}
 		applyClockSkew(&e, now)
 		entries = append(entries, e)
 		perService[raw.Service]++
+	}
+	// scanner 錯誤(如單行超過 8MB cap)會截斷請求,不能當成功回 200。
+	if err := sc.Err(); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{
+			"status": "error", "error_code": "BAD_REQUEST",
+			"message": fmt.Sprintf("讀取請求失敗: %v", err)})
+		return
 	}
 
 	// 4. rate limit(per service),被丟棄的記進 metrics.dropped
@@ -127,7 +149,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	_ = h.d.Metrics.Add(r.Context(), buckets(accepted))
 
 	writeJSON(w, http.StatusOK, map[string]any{
-		"status": "ok", "accepted": len(accepted), "rejected": rejected})
+		"status": "ok", "accepted": len(accepted), "rejected": rejected, "malformed": malformed})
 }
 
 // applyClockSkew:偏差 > ±1h 用 server 時間覆蓋 ts 並標記 attrs._clock_skew。
@@ -140,17 +162,17 @@ func applyClockSkew(e *model.LogEntry, now time.Time) {
 	if diff < -time.Hour || diff > time.Hour {
 		e.TS = now
 		e.ClockSkewed = true
-		e.Attrs = mergeSkewFlag(e.Attrs)
+		e.Attrs = mergeAttr(e.Attrs, "_clock_skew", true)
 	}
 }
 
-// mergeSkewFlag 在 JSON 物件裡塞入 "_clock_skew":true。空/壞值一律換成標記物件。
-func mergeSkewFlag(attrs string) string {
+// mergeAttr 在 attrs 的 JSON 物件裡塞入 key/value。空/壞值一律換成只含該標記的新物件。
+func mergeAttr(attrs, key string, value any) string {
 	m := map[string]any{}
 	if attrs != "" {
 		_ = json.Unmarshal([]byte(attrs), &m)
 	}
-	m["_clock_skew"] = true
+	m[key] = value
 	b, _ := json.Marshal(m)
 	return string(b)
 }

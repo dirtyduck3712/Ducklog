@@ -1,7 +1,10 @@
 // Package model 定義日誌的核心型別。
 package model
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 // Level 對應 spec 的 level 編碼:0=debug 1=info 2=warn 3=error。
 type Level uint8
@@ -24,6 +27,7 @@ func (l Level) String() string {
 
 // ParseLevel 把字串 level 轉成 Level;第二個回傳值為是否有效。
 func ParseLevel(s string) (Level, bool) {
+	s = strings.ToLower(s)
 	for i, n := range levelNames {
 		if n == s {
 			return Level(i), true
