@@ -10,7 +10,10 @@ import (
 
 // RemoteConfig 設定 RemoteHandler。只有 Endpoint/APIKey/Service 通常必填,其餘有預設。
 type RemoteConfig struct {
-	Endpoint      string        // 例:http://logd:8080/ingest
+	// Endpoint 是 POST 目的地。指向 VictoriaLogs 時用 jsonline ingest 並附欄位映射:
+	//   http://<vl-host>:9428/insert/jsonline?_time_field=ts&_msg_field=message&_stream_fields=service
+	// VL OSS 無 auth,APIKey 留空即可。
+	Endpoint      string        // 例:http://vl:9428/insert/jsonline?_time_field=ts&_msg_field=message&_stream_fields=service
 	APIKey        string        // Bearer(ingest scope)
 	Service       string        // 本服務名稱
 	Level         slog.Leveler  // 最低等級,預設 Info
