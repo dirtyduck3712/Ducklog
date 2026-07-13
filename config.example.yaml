@@ -1,14 +1,2 @@
-listen: ":8080"
-data_dir: "data"
-checkpoint_interval: "1h"
-rate_limits:
-  default: 1000
-  overrides:
-    batch-worker: 5000
-api_keys:
-  - key: "CHANGE-ME-ingest"
-    name: "k8s-daemonset"
-    scopes: ["ingest"]
-  - key: "CHANGE-ME-query"
-    name: "claude-code"
-    scopes: ["query", "mcp"]
+vl_url: "http://127.0.0.1:9428"
+query_timeout: "30s"
