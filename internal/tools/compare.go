@@ -3,8 +3,8 @@ package tools
 import (
 	"context"
 
-	"docklog/internal/bound"
-	"docklog/internal/vl"
+	"ducklog/internal/bound"
+	"ducklog/internal/vl"
 )
 
 // ComparePeriods 對兩個時間窗各跑 fingerprint stats,回「新出現 / 暴增」的 pattern。

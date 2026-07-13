@@ -3,8 +3,8 @@ package tools
 import (
 	"context"
 
-	"docklog/internal/bound"
-	"docklog/internal/vl"
+	"ducklog/internal/bound"
+	"ducklog/internal/vl"
 )
 
 func SummarizeErrors(ctx context.Context, c *vl.Client, service, timeRange string, limit int) bound.Envelope {

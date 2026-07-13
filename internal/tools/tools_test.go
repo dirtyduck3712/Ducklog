@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"docklog/internal/vl"
-	"docklog/internal/vltest"
+	"ducklog/internal/vl"
+	"ducklog/internal/vltest"
 )
 
 // ingestErrors 寫入兩種 error 模板(數字不同,應收斂成 2 個 pattern)+ 一些 info。

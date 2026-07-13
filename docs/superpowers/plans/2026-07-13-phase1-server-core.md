@@ -58,7 +58,7 @@ internal/ingest/handler_test.go
 internal/health/health.go          GET /health
 internal/health/health_test.go
 internal/config/config.go          Config 載入(YAML)
-cmd/docklog/main.go                組裝與 graceful shutdown
+cmd/ducklog/main.go                組裝與 graceful shutdown
 ```
 
 決策邊界:每個 `internal/*` 套件單一職責、可獨立測試。`store` 只管 DuckLake,不知道 HTTP;`ingest` 編排各防護但不知道 DuckLake 細節。
@@ -76,11 +76,11 @@ cmd/docklog/main.go                組裝與 graceful shutdown
 - [ ] **Step 1: git init + module + 相依**
 
 ```bash
-cd /home/dva/workspace/docklog
+cd /home/dva/workspace/ducklog
 git init
-printf 'data/\n/docklog\n*.duckdb\n*.ducklake\n*.ducklake.wal\nphase0/\n' > .gitignore
+printf 'data/\n/ducklog\n*.duckdb\n*.ducklake\n*.ducklake.wal\nphase0/\n' > .gitignore
 export GOTOOLCHAIN=go1.24.0
-go mod init docklog
+go mod init ducklog
 go get github.com/marcboeker/go-duckdb/v2@v2.4.3
 ```
 
@@ -213,7 +213,7 @@ import (
 	"testing"
 	"time"
 
-	"docklog/internal/model"
+	"ducklog/internal/model"
 )
 
 func sample(n int) []model.LogEntry {
@@ -308,7 +308,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"docklog/internal/model"
+	"ducklog/internal/model"
 
 	_ "github.com/marcboeker/go-duckdb/v2"
 )
@@ -474,7 +474,7 @@ import (
 	"testing"
 	"time"
 
-	"docklog/internal/model"
+	"ducklog/internal/model"
 )
 
 func TestUpsertAccumulates(t *testing.T) {
@@ -527,7 +527,7 @@ import (
 	"database/sql"
 	"time"
 
-	"docklog/internal/model"
+	"ducklog/internal/model"
 
 	_ "github.com/marcboeker/go-duckdb/v2"
 )
@@ -1048,11 +1048,11 @@ import (
 	"testing"
 	"time"
 
-	"docklog/internal/auth"
-	"docklog/internal/diskguard"
-	"docklog/internal/metrics"
-	"docklog/internal/ratelimit"
-	"docklog/internal/store"
+	"ducklog/internal/auth"
+	"ducklog/internal/diskguard"
+	"ducklog/internal/metrics"
+	"ducklog/internal/ratelimit"
+	"ducklog/internal/store"
 )
 
 func newTestHandler(t *testing.T, usage float64) (*Handler, *store.Store, *metrics.MetricsStore) {
@@ -1180,12 +1180,12 @@ import (
 	"net/http"
 	"time"
 
-	"docklog/internal/auth"
-	"docklog/internal/diskguard"
-	"docklog/internal/metrics"
-	"docklog/internal/model"
-	"docklog/internal/ratelimit"
-	"docklog/internal/store"
+	"ducklog/internal/auth"
+	"ducklog/internal/diskguard"
+	"ducklog/internal/metrics"
+	"ducklog/internal/model"
+	"ducklog/internal/ratelimit"
+	"ducklog/internal/store"
 )
 
 type Deps struct {
@@ -1379,7 +1379,7 @@ import (
 	"testing"
 	"time"
 
-	"docklog/internal/store"
+	"ducklog/internal/store"
 )
 
 func TestOnceUpdatesTimestamp(t *testing.T) {
@@ -1436,7 +1436,7 @@ import (
 	"sync"
 	"time"
 
-	"docklog/internal/store"
+	"ducklog/internal/store"
 )
 
 type Loop struct {
@@ -1525,9 +1525,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"docklog/internal/diskguard"
-	"docklog/internal/metrics"
-	"docklog/internal/store"
+	"ducklog/internal/diskguard"
+	"ducklog/internal/metrics"
+	"ducklog/internal/store"
 )
 
 func TestHealth(t *testing.T) {
@@ -1574,9 +1574,9 @@ import (
 	"net/http"
 	"time"
 
-	"docklog/internal/diskguard"
-	"docklog/internal/metrics"
-	"docklog/internal/store"
+	"ducklog/internal/diskguard"
+	"ducklog/internal/metrics"
+	"ducklog/internal/store"
 )
 
 type Deps struct {
@@ -1629,7 +1629,7 @@ git commit -m "feat: health endpoint with catalog size + last checkpoint"
 ## Task 9: Config + main.go 組裝 + graceful shutdown
 
 **Files:**
-- Create: `internal/config/config.go`, `internal/config/config_test.go`, `cmd/docklog/main.go`, `config.example.yaml`
+- Create: `internal/config/config.go`, `internal/config/config_test.go`, `cmd/ducklog/main.go`, `config.example.yaml`
 - 需要 YAML:`go get gopkg.in/yaml.v3`
 
 **Interfaces:**
@@ -1696,7 +1696,7 @@ import (
 	"os"
 	"time"
 
-	"docklog/internal/auth"
+	"ducklog/internal/auth"
 
 	"gopkg.in/yaml.v3"
 )
@@ -1760,9 +1760,9 @@ Expected: PASS。
 
 - [ ] **Step 5: 寫 main.go**
 
-`cmd/docklog/main.go`:
+`cmd/ducklog/main.go`:
 ```go
-// docklog server:單 binary 的日誌收集器。Phase 1a = ingest + 儲存 + 防護。
+// ducklog server:單 binary 的日誌收集器。Phase 1a = ingest + 儲存 + 防護。
 package main
 
 import (
@@ -1776,15 +1776,15 @@ import (
 	"syscall"
 	"time"
 
-	"docklog/internal/auth"
-	"docklog/internal/checkpoint"
-	"docklog/internal/config"
-	"docklog/internal/diskguard"
-	"docklog/internal/health"
-	"docklog/internal/ingest"
-	"docklog/internal/metrics"
-	"docklog/internal/ratelimit"
-	"docklog/internal/store"
+	"ducklog/internal/auth"
+	"ducklog/internal/checkpoint"
+	"ducklog/internal/config"
+	"ducklog/internal/diskguard"
+	"ducklog/internal/health"
+	"ducklog/internal/ingest"
+	"ducklog/internal/metrics"
+	"ducklog/internal/ratelimit"
+	"ducklog/internal/store"
 )
 
 func main() {
@@ -1825,7 +1825,7 @@ func main() {
 
 	srv := &http.Server{Addr: cfg.Listen, Handler: mux}
 	go func() {
-		log.Printf("docklog 監聽 %s", cfg.Listen)
+		log.Printf("ducklog 監聽 %s", cfg.Listen)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("http: %v", err)
 		}
@@ -1861,9 +1861,9 @@ api_keys:
 - [ ] **Step 6: 建置與冒煙測試**
 
 ```bash
-GOTOOLCHAIN=go1.24.0 go build -o docklog ./cmd/docklog
+GOTOOLCHAIN=go1.24.0 go build -o ducklog ./cmd/ducklog
 cp config.example.yaml config.yaml   # 改掉 key
-./docklog -config config.yaml &
+./ducklog -config config.yaml &
 sleep 2
 curl -s -XPOST localhost:8080/ingest -H 'Authorization: Bearer CHANGE-ME-ingest' \
   --data-binary $'{"ts":"2026-07-13T10:00:00Z","service":"api","level":"error","message":"boom"}'
@@ -1908,7 +1908,7 @@ import (
 	"testing"
 	"time"
 
-	"docklog/internal/store"
+	"ducklog/internal/store"
 )
 
 // 這個測試會 build 一個小 writer helper、SIGKILL 它、再用 Store 重開驗證。
@@ -1958,7 +1958,7 @@ func readInt(path string) int64 {
 }
 ```
 
-> `writeHelper` 把一段 `package main` 原始碼寫進 `dir/helper/main.go`,內容:開 `store.Open(dataDir)`、以 50 筆/tx 迴圈 `Insert`,每次 commit 後 fsync 累計數到 counter 檔;然後 `GOTOOLCHAIN=go1.24.0 go build` 成 binary 回傳路徑。**helper 需 import `docklog/internal/store`,所以要在同 module 內編譯**(用 `go build` 指到暫存的 `.go`,並確保 `GOFLAGS`/工作目錄在 repo 內;或把 helper 放進 `internal/store/testdata/crashhelper/` 這種固定套件,用 build tag 排除於一般編譯,再於測試中 `go build ./internal/store/testdata/crashhelper`)。實作時採後者較穩。
+> `writeHelper` 把一段 `package main` 原始碼寫進 `dir/helper/main.go`,內容:開 `store.Open(dataDir)`、以 50 筆/tx 迴圈 `Insert`,每次 commit 後 fsync 累計數到 counter 檔;然後 `GOTOOLCHAIN=go1.24.0 go build` 成 binary 回傳路徑。**helper 需 import `ducklog/internal/store`,所以要在同 module 內編譯**(用 `go build` 指到暫存的 `.go`,並確保 `GOFLAGS`/工作目錄在 repo 內;或把 helper 放進 `internal/store/testdata/crashhelper/` 這種固定套件,用 build tag 排除於一般編譯,再於測試中 `go build ./internal/store/testdata/crashhelper`)。實作時採後者較穩。
 
 - [ ] **Step 2: 實作 crash helper(固定套件版)**
 
@@ -1973,8 +1973,8 @@ import (
 	"strconv"
 	"time"
 
-	"docklog/internal/model"
-	"docklog/internal/store"
+	"ducklog/internal/model"
+	"ducklog/internal/store"
 )
 
 func main() {

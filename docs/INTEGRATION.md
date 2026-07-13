@@ -1,28 +1,28 @@
-# docklog 接入指南（給要對接的工程師）
+# ducklog 接入指南（給要對接的工程師）
 
-把一個服務的 log 送進 docklog（→ VictoriaLogs），並讓 AI 透過 MCP 查詢。
-架構:`你的服務 ──日誌傳輸──▶ VictoriaLogs ◀──LogsQL── docklog-mcp ◀── Claude Code`。
+把一個服務的 log 送進 ducklog（→ VictoriaLogs），並讓 AI 透過 MCP 查詢。
+架構:`你的服務 ──日誌傳輸──▶ VictoriaLogs ◀──LogsQL── ducklog-mcp ◀── Claude Code`。
 
 前提:VictoriaLogs 已在跑(見 [README](../README.md) 的「取得並啟動 VictoriaLogs」)。以下假設它在 `http://127.0.0.1:9428`。
 
 ---
 
-## 0. 先讓你的專案抓得到 docklog（模組解析)
+## 0. 先讓你的專案抓得到 ducklog（模組解析)
 
-docklog 目前**未發佈到 git remote**,所以無法 `go get`。兩種接法:
+ducklog 目前**未發佈到 git remote**,所以無法 `go get`。兩種接法:
 
 **A. 本機 replace(最快,只在你這台機器有效)** —— 在你服務的 `go.mod`:
 ```
-require docklog/client v0.0.0
-replace docklog/client => /path/to/docklog/client
+require ducklog/client v0.0.0
+replace ducklog/client => /path/to/ducklog/client
 ```
 zap 服務再加:
 ```
-require docklog/zapsink v0.0.0
-replace docklog/zapsink => /path/to/docklog/zapsink
+require ducklog/zapsink v0.0.0
+replace ducklog/zapsink => /path/to/ducklog/zapsink
 ```
 
-**B. 發佈後(團隊/CI/正式環境要用這個)** —— 把 docklog push 到你們的 git,把模組路徑改成真實網址(如 `github.com/yourorg/docklog/client`),用版本化 `require`、拿掉 local replace。
+**B. 發佈後(團隊/CI/正式環境要用這個)** —— 把 ducklog push 到你們的 git,把模組路徑改成真實網址(如 `github.com/yourorg/ducklog/client`),用版本化 `require`、拿掉 local replace。
 
 > ⚠️ 本機 `replace` 指向絕對路徑,**別人/CI 的機器上不存在 → build 會失敗**。要跨機器一定得走 B。
 
@@ -30,12 +30,12 @@ replace docklog/zapsink => /path/to/docklog/zapsink
 
 ## 1. 服務用 stdlib `log/slog`(最單純)
 
-docklog 的 transport 本身就是一個 `slog.Handler`。在服務啟動處:
+ducklog 的 transport 本身就是一個 `slog.Handler`。在服務啟動處:
 
 ```go
-import "docklog/client"
+import "ducklog/client"
 
-if vlURL := os.Getenv("DOCKLOG_VL_URL"); vlURL != "" {
+if vlURL := os.Getenv("DUCKLOG_VL_URL"); vlURL != "" {
     h := client.NewRemoteHandler(client.RemoteConfig{
         Endpoint: vlURL + "/insert/jsonline?_time_field=ts&_msg_field=message&_stream_fields=service",
         Service:  "my-service",   // 這個名字就是 LogsQL 裡的 service 欄位
@@ -51,12 +51,12 @@ if vlURL := os.Getenv("DOCKLOG_VL_URL"); vlURL != "" {
 
 ## 2. 服務用 `go.uber.org/zap`
 
-zap 與 slog 是不同介面,用 `docklog/zapsink` 這個轉接橋。若你用 `zap.Config.Build`:
+zap 與 slog 是不同介面,用 `ducklog/zapsink` 這個轉接橋。若你用 `zap.Config.Build`:
 
 ```go
 import (
-    "docklog/client"
-    "docklog/zapsink"
+    "ducklog/client"
+    "ducklog/zapsink"
     "go.uber.org/zap"
     "go.uber.org/zap/zapcore"
 )
@@ -65,7 +65,7 @@ func buildLogger() (*zap.Logger, func()) {
     cfg := zap.NewProductionConfig()
     var opts []zap.Option
     cleanup := func() {}
-    if vlURL := os.Getenv("DOCKLOG_VL_URL"); vlURL != "" {
+    if vlURL := os.Getenv("DUCKLOG_VL_URL"); vlURL != "" {
         opts = append(opts, zap.WrapCore(func(base zapcore.Core) zapcore.Core {
             core, stop := zapsink.Tee(base, client.RemoteConfig{
                 Endpoint: vlURL + "/insert/jsonline?_time_field=ts&_msg_field=message&_stream_fields=service",
@@ -81,15 +81,15 @@ func buildLogger() (*zap.Logger, func()) {
     return logger, cleanup   // 呼叫端要 defer cleanup()
 }
 ```
-zap 的既有 console 輸出保留,docklog 是**額外**的 sink。`zapsink.NewCore(handler, minLevel)` 是更底層的通用版(自己建 core 時用)。
+zap 的既有 console 輸出保留,ducklog 是**額外**的 sink。`zapsink.NewCore(handler, minLevel)` 是更底層的通用版(自己建 core 時用)。
 
 > zap 的 `logger.Fatal` 會 `os.Exit`,**跳過 defer** → cleanup 不執行、最後那筆可能沒排空。多數 log 靠 1 秒的定時 flush 已送出;若很在意最後一筆,shutdown 走 graceful(別用 Fatal)。
 
 ---
 
-## 3. 建議:用 `DOCKLOG_VL_URL` 當開關
+## 3. 建議:用 `DUCKLOG_VL_URL` 當開關
 
-上面兩種都以 env `DOCKLOG_VL_URL` 為開關 —— **不設就完全維持原本 logging 行為**。好處:程式碼可以先合進去,VL 還沒佈署也不影響;要開就設環境變數。
+上面兩種都以 env `DUCKLOG_VL_URL` 為開關 —— **不設就完全維持原本 logging 行為**。好處:程式碼可以先合進去,VL 還沒佈署也不影響;要開就設環境變數。
 
 ---
 
@@ -117,8 +117,8 @@ printf '{"ts":"%s","service":"my-service","level":"error","message":"boom"}\n' "
 ## 5. 讓 AI 查(MCP)
 
 ```bash
-cd docklog && go build -o ~/bin/docklog-mcp ./cmd/docklog-mcp
-claude mcp add docklog --env VL_URL=http://127.0.0.1:9428 -- ~/bin/docklog-mcp
+cd ducklog && go build -o ~/bin/ducklog-mcp ./cmd/ducklog-mcp
+claude mcp add ducklog --env VL_URL=http://127.0.0.1:9428 -- ~/bin/ducklog-mcp
 ```
 之後在 Claude Code 問「summarize errors in my-service in the last hour」即可。四個工具:`summarize_errors`(主入口,fingerprint 分群)、`get_trace`、`search_logs`、`compare_periods`。
 
@@ -130,7 +130,7 @@ claude mcp add docklog --env VL_URL=http://127.0.0.1:9428 -- ~/bin/docklog-mcp
 |---|---|
 | vmui 看不到 log | 時間範圍預設 5 分鐘 → 拉大(見 §4) |
 | 手動 curl 回 200 但查不到 | 少了 `Content-Type: application/x-ndjson`(見 §4) |
-| 別人 build 失敗 `cannot find module docklog/client` | 本機 replace 只在你機器有效 → 要發佈(見 §0-B) |
+| 別人 build 失敗 `cannot find module ducklog/client` | 本機 replace 只在你機器有效 → 要發佈(見 §0-B) |
 | 巢狀 `attrs` 查不到 | VL 會攤平成 dot 欄位:`attrs={"host":"x"}` → 查 `attrs.host:="x"` |
 | log 有函式/連線物件等欄位 | transport 已自動把不可序列化的 attr 值轉字串,不會丟批(v1 已修) |
 | zap Fatal 後最後一筆沒進 | Fatal=os.Exit 跳過 defer;shutdown 改走 graceful |

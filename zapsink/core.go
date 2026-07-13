@@ -1,14 +1,14 @@
-// Package zapsink 把 zap 的 log 轉發到 docklog 以 slog 為介面的傳輸層
-// (最終進 VictoriaLogs),讓 zap-based 服務也能沿用 docklog 的批次/重試/
+// Package zapsink 把 zap 的 log 轉發到 ducklog 以 slog 為介面的傳輸層
+// (最終進 VictoriaLogs),讓 zap-based 服務也能沿用 ducklog 的批次/重試/
 // 熔斷/fallback 韌性。通用型 NewCore 只依賴 zap 與 stdlib;Tee 便利函式
-// 額外接上 docklog client,一行完成接入。
+// 額外接上 ducklog client,一行完成接入。
 package zapsink
 
 import (
 	"context"
 	"log/slog"
 
-	"docklog/client"
+	"ducklog/client"
 
 	"go.uber.org/zap/zapcore"
 )
@@ -21,7 +21,7 @@ type Core struct {
 }
 
 // NewCore 回傳一個轉發到 h 的 zapcore.Core,只轉發等級 >= min 的 entry。
-// 通用:不綁 docklog,測試可用任何 slog.Handler。
+// 通用:不綁 ducklog,測試可用任何 slog.Handler。
 func NewCore(h slog.Handler, min slog.Level) *Core {
 	return &Core{handler: h, min: min}
 }
@@ -62,9 +62,9 @@ func (c *Core) Write(ent zapcore.Entry, fields []zapcore.Field) error {
 // Sync 無需動作:底層 slog.Handler 自有批次/排空(關閉時 Close 排空)。
 func (c *Core) Sync() error { return nil }
 
-// Tee 把 base 與一個由 cfg 建立的 docklog sink 併成一個 core,並回傳排空用的
+// Tee 把 base 與一個由 cfg 建立的 ducklog sink 併成一個 core,並回傳排空用的
 // cleanup func(關閉時呼叫以排空 transport queue)。等級過濾交由 base logger 的
-// atomic level;docklog core 接受所有到達的 entry。
+// atomic level;ducklog core 接受所有到達的 entry。
 //
 //	logger := zap.New(...)  // 或用 zapCfg.Build(zap.WrapCore(...))
 //	core, stop := zapsink.Tee(baseCore, client.RemoteConfig{

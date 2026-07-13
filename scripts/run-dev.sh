@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# run-dev.sh — 本機開發用:起 VictoriaLogs,或 build docklog-mcp 並印出 Claude Code 註冊指令。
+# run-dev.sh — 本機開發用:起 VictoriaLogs,或 build ducklog-mcp 並印出 Claude Code 註冊指令。
 #
 # 用法:
 #   scripts/run-dev.sh vl     # 前景啟動 VictoriaLogs（127.0.0.1:9428）
-#   scripts/run-dev.sh mcp    # build docklog-mcp 並印出 MCP 註冊指令
+#   scripts/run-dev.sh mcp    # build ducklog-mcp 並印出 MCP 註冊指令
 #
 # 環境變數:
 #   VL_BINARY   victoria-logs-prod 的路徑（vl 子命令用；未設則試 PATH，再提示下載）
@@ -60,29 +60,29 @@ cmd_vl() {
 
 cmd_mcp() {
   local vl_url="${VL_URL:-http://127.0.0.1:9428}"
-  echo "build docklog-mcp..." >&2
-  ( cd "$ROOT" && go build -o docklog-mcp ./cmd/docklog-mcp )
-  local bin="$ROOT/docklog-mcp"
+  echo "build ducklog-mcp..." >&2
+  ( cd "$ROOT" && go build -o ducklog-mcp ./cmd/ducklog-mcp )
+  local bin="$ROOT/ducklog-mcp"
   echo "已 build: $bin" >&2
   cat <<EOF
 
-docklog-mcp 是 stdio MCP server，由 Claude Code 啟動，不用手動跑。
+ducklog-mcp 是 stdio MCP server，由 Claude Code 啟動，不用手動跑。
 在 Claude Code 註冊:
 
-  claude mcp add docklog --env VL_URL=$vl_url -- $bin
+  claude mcp add ducklog --env VL_URL=$vl_url -- $bin
 
 或等價的 JSON 設定:
 
   {
     "mcpServers": {
-      "docklog": {
+      "ducklog": {
         "command": "$bin",
         "env": { "VL_URL": "$vl_url" }
       }
     }
   }
 
-注意: docklog-mcp 啟動時會 Ping VL（$vl_url），VL 不可達則 fail fast。
+注意: ducklog-mcp 啟動時會 Ping VL（$vl_url），VL 不可達則 fail fast。
 先用 'scripts/run-dev.sh vl' 起 VL 再註冊。
 EOF
 }

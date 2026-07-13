@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"testing"
 
-	"docklog/client"
+	"ducklog/client"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"

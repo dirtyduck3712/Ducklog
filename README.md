@@ -1,11 +1,11 @@
-# docklog
+# ducklog
 
 AI-first log 觀測:app 用 Go slog transport 送 log 進 **VictoriaLogs**（儲存 / retention /
-LogsQL / 內建 web UI），我們的 **stdio MCP server**（`cmd/docklog-mcp`）把 VL 包成一組
+LogsQL / 內建 web UI），我們的 **stdio MCP server**（`cmd/ducklog-mcp`）把 VL 包成一組
 防幻覺的工具給 Claude Code 用。
 
 ```
-apps ──slog RemoteHandler──▶ VictoriaLogs ◀──LogsQL── docklog-mcp ◀──stdio── Claude Code
+apps ──slog RemoteHandler──▶ VictoriaLogs ◀──LogsQL── ducklog-mcp ◀──stdio── Claude Code
        (client/)              (storage/UI)             (MCP tools)
 ```
 
@@ -16,7 +16,7 @@ apps ──slog RemoteHandler──▶ VictoriaLogs ◀──LogsQL── docklo
 - **`client/`** — 純 stdlib 的 Go transport（一個 `slog.Handler`）。app 引入它把 log 以
   NDJSON POST 進 VL。指向 VL 的設定見 [`client/README.md`](client/README.md)。
 - **VictoriaLogs** — 外部 OSS 單一執行檔，負責儲存、retention、LogsQL 查詢與 vmui。
-- **`cmd/docklog-mcp`** — stdio MCP server，把 VL 包成 4 個 AI-first 工具給 Claude Code。
+- **`cmd/ducklog-mcp`** — stdio MCP server，把 VL 包成 4 個 AI-first 工具給 Claude Code。
 
 ## 快速上手
 
@@ -56,13 +56,13 @@ wire 格式與欄位映射的細節見 [`client/README.md`](client/README.md)。
 ### 3. Build 並在 Claude Code 註冊 MCP server
 
 ```bash
-go build ./cmd/docklog-mcp
+go build ./cmd/ducklog-mcp
 ```
 
-`docklog-mcp` 是 stdio server，由 Claude Code 啟動（不用手動跑）。註冊:
+`ducklog-mcp` 是 stdio server，由 Claude Code 啟動（不用手動跑）。註冊:
 
 ```bash
-claude mcp add docklog --env VL_URL=http://127.0.0.1:9428 -- /abs/path/to/docklog-mcp
+claude mcp add ducklog --env VL_URL=http://127.0.0.1:9428 -- /abs/path/to/ducklog-mcp
 ```
 
 或等價的 JSON 設定:
@@ -70,8 +70,8 @@ claude mcp add docklog --env VL_URL=http://127.0.0.1:9428 -- /abs/path/to/docklo
 ```json
 {
   "mcpServers": {
-    "docklog": {
-      "command": "/abs/path/to/docklog-mcp",
+    "ducklog": {
+      "command": "/abs/path/to/ducklog-mcp",
       "env": { "VL_URL": "http://127.0.0.1:9428" }
     }
   }

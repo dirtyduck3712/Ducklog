@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"docklog/internal/vltest"
+	"ducklog/internal/vltest"
 )
 
 func TestQueryAndCount(t *testing.T) {

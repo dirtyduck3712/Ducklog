@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"docklog/internal/bound"
-	"docklog/internal/vl"
+	"ducklog/internal/bound"
+	"ducklog/internal/vl"
 
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
