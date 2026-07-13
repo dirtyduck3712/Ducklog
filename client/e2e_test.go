@@ -1,154 +1,202 @@
 package client
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
-	"path/filepath"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
 )
 
-// TestEndToEndWireContract 啟動真正的 docklog server binary,直接把 client 傳輸層
-// 產生的 wire 格式(NDJSON + Bearer auth + canonical UUID trace)POST 進去,斷言
-// server 回 accepted:3 / rejected:0。這證明真 server 接受 client 的 wire 契約 ——
-// 這是用 httptest fake 的單元測試無法涵蓋的互通性。
+// TestEndToEndWireContract 啟動真正的 VictoriaLogs(VL)binary,用現有的 RemoteHandler
+// 把 client 傳輸層產生的 wire 格式(NDJSON:{ts,service,level,trace_id,message,attrs})
+// POST 進 VL 的 /insert/jsonline endpoint,再用 LogsQL 查回,斷言:三筆都在、_msg 等於
+// 我們的 message、trace_id 可過濾、巢狀 attrs 的 host 值查得回。這證明現有 transport 的
+// wire 契約與 VL 原生相容 —— 這是用 httptest fake 的單元測試無法涵蓋的互通性。
 //
-// 手動執行:cd client && go test -run EndToEnd ./...
-// -short 會直接 skip(server build 走 CGO go-duckdb,首次較慢)。
+// 手動執行:cd client && VL_BINARY=<path> go test -run EndToEnd ./... -v
+// -short 會直接 skip(需 VL binary + 較重)。
 func TestEndToEndWireContract(t *testing.T) {
 	if testing.Short() {
-		t.Skip("端到端測試較重:需跨模組 build 真 server(CGO go-duckdb)")
+		t.Skip("端到端測試較重:需真正的 VictoriaLogs binary")
 	}
 
-	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "docklogd")
+	base := startVL(t)
 
-	// server module(../)需要 go 1.24;client module 只要 1.22。GOTOOLCHAIN 只設在
-	// 這個 build 指令上。從 client 目錄 build `../cmd/docklog` 會因兩者是獨立 module 而
-	// 失敗("outside main module"),故直接把工作目錄設為 repo 根(..)、target 用
-	// server module 內的 ./cmd/docklog。
-	build := exec.Command("go", "build", "-o", bin, "./cmd/docklog")
-	build.Dir = ".." // repo 根 = server module
-	build.Env = append(os.Environ(), "GOTOOLCHAIN=go1.24.0")
-	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build server binary: %v\n%s", err, out)
-	}
+	// Endpoint 指向 VL 的 jsonline ingest,附欄位映射:ts→_time、message→_msg、
+	// service→stream field。transport 程式碼不變,只是換 Endpoint。
+	endpoint := base + "/insert/jsonline?_time_field=ts&_msg_field=message&_stream_fields=service"
 
-	port := freePort(t)
-	addr := fmt.Sprintf("127.0.0.1:%d", port)
-	dataDir := filepath.Join(tmp, "data")
+	const traceID = "550e8400-e29b-41d4-a716-446655440000" // canonical UUIDv4
+	const hostVal = "10.0.1.5"
 
-	// rate_limits.default 必填:未設時 default rate = 0,server 會丟棄所有寫入。
-	cfg := fmt.Sprintf(`listen: "%s"
-data_dir: "%s"
-checkpoint_interval: "1h"
-rate_limits:
-  default: 1000
-api_keys:
-  - key: "e2e-key"
-    name: "e2e"
-    scopes: ["ingest"]
-`, addr, dataDir)
-	cfgPath := filepath.Join(tmp, "config.yaml")
-	if err := os.WriteFile(cfgPath, []byte(cfg), 0o644); err != nil {
-		t.Fatalf("write config: %v", err)
-	}
-
-	var stderr syncBuffer
-	srv := exec.Command(bin, "-config", cfgPath)
-	srv.Stderr = &stderr
-	if err := srv.Start(); err != nil {
-		t.Fatalf("start server: %v", err)
-	}
-	defer func() {
-		_ = srv.Process.Kill()
-		_, _ = srv.Process.Wait()
-	}()
-
-	healthURL := "http://" + addr + "/health"
-	if !waitHealthy(healthURL, 10*time.Second) {
-		t.Fatalf("server 未在 10s 內回 /health 200\nstderr:\n%s", stderr.String())
-	}
-
-	// --- 核心斷言:client wire 格式打進真 server ---
-	// 用 package 自己的 entry + encodeNDJSON,確保送的就是 sender 會送的位元組。
-	entries := []entry{
-		{TS: "2026-07-13T00:00:00Z", Service: "e2e", Level: "error",
-			TraceID: "550e8400-e29b-41d4-a716-446655440000", Message: "boom"},
-		{TS: "2026-07-13T00:00:01Z", Service: "e2e", Level: "info", Message: "hello"},
-		{TS: "2026-07-13T00:00:02Z", Service: "e2e", Level: "warn", Message: "careful"},
-	}
-	var body bytes.Buffer
-	if err := encodeNDJSON(&body, entries); err != nil {
-		t.Fatalf("encodeNDJSON: %v", err)
-	}
-
-	req, err := http.NewRequest(http.MethodPost, "http://"+addr+"/ingest", &body)
-	if err != nil {
-		t.Fatalf("new request: %v", err)
-	}
-	req.Header.Set("Authorization", "Bearer e2e-key")
-	req.Header.Set("Content-Type", "application/x-ndjson")
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatalf("POST /ingest: %v\nstderr:\n%s", err, stderr.String())
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		raw, _ := io.ReadAll(resp.Body)
-		t.Fatalf("POST /ingest 狀態 = %d, want 200\nbody: %s\nstderr:\n%s",
-			resp.StatusCode, raw, stderr.String())
-	}
-
-	var ir struct {
-		Status    string `json:"status"`
-		Accepted  int    `json:"accepted"`
-		Rejected  int    `json:"rejected"`
-		Malformed int    `json:"malformed"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&ir); err != nil {
-		t.Fatalf("decode ingest response: %v", err)
-	}
-	if ir.Accepted != 3 || ir.Rejected != 0 || ir.Malformed != 0 {
-		t.Fatalf("ingest 回應 = %+v, want accepted:3 rejected:0 malformed:0", ir)
-	}
-
-	// --- 煙霧測試:RemoteHandler 對真 server 送實際流量 ---
 	h := NewRemoteHandler(RemoteConfig{
-		Endpoint:      "http://" + addr + "/ingest",
-		APIKey:        "e2e-key",
-		Service:       "e2e-handler",
+		Endpoint:      endpoint,
+		APIKey:        "", // VL OSS 無 auth
+		Service:       "e2e",
 		Level:         slog.LevelDebug,
 		FlushInterval: 50 * time.Millisecond,
 		Fallback:      io.Discard, // 別把雙寫吐進測試輸出
 	})
+
 	log := slog.New(h)
-	ctx := context.Background()
-	log.ErrorContext(ctx, "e1", "n", 1)
-	log.InfoContext(ctx, "e2", "n", 2)
-	log.WarnContext(ctx, "e3", "n", 3)
+	ctx := ContextWithTraceID(context.Background(), traceID)
+	bg := context.Background()
+
+	// 三筆:第一筆帶 canonical trace_id + 巢狀 attrs={"host":"10.0.1.5"}。
+	log.ErrorContext(ctx, "boom", "host", hostVal)
+	log.InfoContext(bg, "hello")
+	log.WarnContext(bg, "careful")
+
 	if err := h.Close(); err != nil { // 排空 queue 並 flush
 		t.Fatalf("handler Close: %v", err)
 	}
 
-	// server 沒被 handler 的真實流量弄掛。
-	if !waitHealthy(healthURL, 3*time.Second) {
-		t.Fatalf("handler 送完後 server 不健康\nstderr:\n%s", stderr.String())
+	// VL 查詢可見性落後 ingest(有緩衝)。輪詢查全部,直到看見 3 筆或逾時。
+	var rows []map[string]any
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		rows = queryVL(t, base, "*")
+		if len(rows) >= 3 {
+			break
+		}
+		time.Sleep(200 * time.Millisecond)
 	}
+	if len(rows) != 3 {
+		t.Fatalf("VL 查回 %d 筆, want 3(10s 內)", len(rows))
+	}
+
+	// _msg 對得上我們的 message。
+	msgs := map[string]map[string]any{}
+	for _, r := range rows {
+		m, _ := r["_msg"].(string)
+		msgs[m] = r
+	}
+	for _, want := range []string{"boom", "hello", "careful"} {
+		if _, ok := msgs[want]; !ok {
+			t.Errorf("查回結果缺少 _msg=%q;實得 keys=%v", want, keysOf(msgs))
+		}
+	}
+
+	// trace_id 過濾:精確查回帶 trace 的那筆。
+	filtered := queryVL(t, base, `trace_id:="`+traceID+`"`)
+	if len(filtered) != 1 {
+		t.Fatalf("trace_id 過濾查回 %d 筆, want 1", len(filtered))
+	}
+	if got, _ := filtered[0]["_msg"].(string); got != "boom" {
+		t.Errorf("trace_id 過濾的 _msg = %q, want \"boom\"", got)
+	}
+
+	// 巢狀 attrs 處理:不硬綁形態(VL 可能存成 attrs.host 或別的)。
+	// 掃描 boom 那筆的所有欄位,找到值 == hostVal,記錄實際欄位名。
+	boom := msgs["boom"]
+	attrField := ""
+	for k, v := range boom {
+		if s, ok := v.(string); ok && s == hostVal {
+			attrField = k
+			break
+		}
+	}
+	if attrField == "" {
+		t.Fatalf("boom 那筆找不到 host 值 %q;欄位=%v", hostVal, boom)
+	}
+	t.Logf("attrs 巢狀 host 值以欄位 %q = %q 形式存於 VL(完整列:%v)", attrField, hostVal, boom)
 }
 
-// freePort 綁一個臨時 socket 拿到空閒 port 再關掉。config-file server 無法用 :0,
-// 所以先探測、關閉、把 port 交給 server(短暫 race window,實務可接受)。
+// startVL 找到並啟動一個真正的 VL 進程,回傳 base URL(http://127.0.0.1:<port>)。
+// binary 來源:env VL_BINARY,否則 spike 下載到的 scratch 預設路徑;兩者皆不存在則 skip。
+func startVL(t *testing.T) string {
+	t.Helper()
+
+	bin := os.Getenv("VL_BINARY")
+	if bin == "" {
+		bin = "/tmp/claude-1000/-home-dva-workspace-docklog/" +
+			"f9022b92-4536-49e5-8e38-c24f296b0368/scratchpad/vl/victoria-logs-prod"
+	}
+	if _, err := os.Stat(bin); err != nil {
+		t.Skipf("找不到 VL binary(設 VL_BINARY 指向 victoria-logs-prod):%v", err)
+	}
+
+	port := freePort(t)
+	addr := "127.0.0.1:" + strconv.Itoa(port)
+	dataDir := t.TempDir()
+
+	var stderr syncBuffer
+	// VL 的 -httpListenAddr 不吃 :0,故用 bind-probe 取到的實際 port。
+	vl := exec.Command(bin,
+		"-storageDataPath="+dataDir,
+		"-httpListenAddr="+addr,
+		"-retentionPeriod=30d",
+	)
+	vl.Stderr = &stderr
+	if err := vl.Start(); err != nil {
+		t.Fatalf("start VL: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = vl.Process.Kill()
+		_, _ = vl.Process.Wait()
+	})
+
+	base := "http://" + addr
+	if !waitHealthy(base+"/health", 10*time.Second) {
+		t.Fatalf("VL 未在 10s 內回 /health 200\nstderr:\n%s", stderr.String())
+	}
+	return base
+}
+
+// queryVL 用 LogsQL 查 VL,回傳每列一個 map。空結果回空 slice。
+func queryVL(t *testing.T, base, logsql string) []map[string]any {
+	t.Helper()
+	u := base + "/select/logsql/query?query=" + url.QueryEscape(logsql)
+	resp, err := http.Get(u)
+	if err != nil {
+		t.Fatalf("query VL %q: %v", logsql, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		raw, _ := io.ReadAll(resp.Body)
+		t.Fatalf("query VL %q 狀態 = %d, want 200\nbody: %s", logsql, resp.StatusCode, raw)
+	}
+	var out []map[string]any
+	sc := bufio.NewScanner(resp.Body)
+	sc.Buffer(make([]byte, 0, 64*1024), 1<<20)
+	for sc.Scan() {
+		line := bytes.TrimSpace(sc.Bytes())
+		if len(line) == 0 {
+			continue
+		}
+		var row map[string]any
+		if err := json.Unmarshal(line, &row); err != nil {
+			t.Fatalf("解析 VL 查詢結果列 %q: %v", line, err)
+		}
+		out = append(out, row)
+	}
+	if err := sc.Err(); err != nil {
+		t.Fatalf("讀 VL 查詢結果: %v", err)
+	}
+	return out
+}
+
+func keysOf(m map[string]map[string]any) []string {
+	ks := make([]string, 0, len(m))
+	for k := range m {
+		ks = append(ks, k)
+	}
+	return ks
+}
+
+// freePort 綁一個臨時 socket 拿到空閒 port 再關掉。VL 的 -httpListenAddr 不吃 :0,
+// 所以先探測、關閉、把 port 交給 VL(短暫 race window,實務可接受)。
 func freePort(t *testing.T) int {
 	t.Helper()
 	l, err := net.Listen("tcp", "127.0.0.1:0")
