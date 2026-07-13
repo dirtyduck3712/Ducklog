@@ -1,4 +1,4 @@
-// Package client 是 docklog 的純 stdlib Go 傳輸層:一個 slog.Handler + trace ID 傳遞。
+// Package client 是 ducklog 的純 stdlib Go 傳輸層:一個 slog.Handler + trace ID 傳遞。
 package client
 
 import (
@@ -17,7 +17,7 @@ type entry struct {
 	Attrs   map[string]any `json:"attrs,omitempty"`
 }
 
-// levelString 把 slog.Level 對應到 docklog 的小寫等級字串。
+// levelString 把 slog.Level 對應到 ducklog 的小寫等級字串。
 func levelString(l slog.Level) string {
 	switch {
 	case l < slog.LevelInfo:

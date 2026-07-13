@@ -1,4 +1,4 @@
-// docklog-mcp:把 VictoriaLogs 包成 AI-first MCP 工具(stdio)。
+// ducklog-mcp:把 VictoriaLogs 包成 AI-first MCP 工具(stdio)。
 package main
 
 import (
@@ -7,8 +7,8 @@ import (
 	"os"
 	"time"
 
-	"docklog/internal/mcpserver"
-	"docklog/internal/vl"
+	"ducklog/internal/mcpserver"
+	"ducklog/internal/vl"
 )
 
 const defaultVLURL = "http://127.0.0.1:9428"

@@ -1,13 +1,13 @@
-// Package mcpserver 把 docklog tools 註冊成 MCP(stdio)。
+// Package mcpserver 把 ducklog tools 註冊成 MCP(stdio)。
 package mcpserver
 
 import (
 	"context"
 	"encoding/json"
 
-	"docklog/internal/bound"
-	"docklog/internal/tools"
-	"docklog/internal/vl"
+	"ducklog/internal/bound"
+	"ducklog/internal/tools"
+	"ducklog/internal/vl"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -17,7 +17,7 @@ const version = "0.1.0"
 
 // NewServer 建立 MCP server 並註冊 4 個 tool。抽離出來讓測試可在不阻塞 stdio 的情況下驅動。
 func NewServer(c *vl.Client) *server.MCPServer {
-	s := server.NewMCPServer("docklog", version)
+	s := server.NewMCPServer("ducklog", version)
 
 	s.AddTool(mcp.NewTool("summarize_errors",
 		mcp.WithDescription("AI 主入口:把 error 用 fingerprint 分群回 pattern+次數"),

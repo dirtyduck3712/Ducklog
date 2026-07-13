@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 一個純 stdlib 的 Go `slog.Handler`,讓任何 Go 服務用標準 `log/slog` 把 log 可靠送進 docklog server —— 日誌系統掛掉絕不拖垮應用 —— 外加 trace ID 傳遞。
+**Goal:** 一個純 stdlib 的 Go `slog.Handler`,讓任何 Go 服務用標準 `log/slog` 把 log 可靠送進 ducklog server —— 日誌系統掛掉絕不拖垮應用 —— 外加 trace ID 傳遞。
 
 **Architecture:** 獨立模組 `client/`(零外部相依)。`RemoteHandler` 實作 `slog.Handler`:`Handle` 非阻塞入 queue 並同時雙寫 stdout;背景 `sender` goroutine 批次 POST 到 `/ingest`,含 2s timeout、有限重試、熔斷。trace ID 用 `context.Context` 傳遞,HTTP middleware 讀/生成、outbound helper 跨服務延續。
 
@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- **獨立模組**:`client/` 有自己的 `go.mod`,module path `docklog/client`,`go 1.22`。**零外部相依**(只用 stdlib)。不 import 任何 `docklog/internal/...`。
+- **獨立模組**:`client/` 有自己的 `go.mod`,module path `ducklog/client`,`go 1.22`。**零外部相依**(只用 stdlib)。不 import 任何 `ducklog/internal/...`。
 - **Build/test**:在 `client/` 目錄用**普通 `go test ./...`**(本機 go 1.22.2),**不需** `GOTOOLCHAIN=go1.24.0`(沒有 go-duckdb)。唯一例外:選配的端到端測試(Task 7)要 build server binary,那時才需 `GOTOOLCHAIN=go1.24.0`。
 - **Wire 契約**(對齊 server `/ingest`,NDJSON 每行一筆):`{"ts","service","level","trace_id","message","attrs"}`。`ts`=RFC3339 UTC;`level`=小寫 `debug|info|warn|error`;`trace_id`=canonical UUID(或省略);`attrs`=JSON object。
 - **失敗模式 #6 五要件**(硬需求):(1) 非阻塞 —— queue 滿就丟、絕不阻塞呼叫端;(2) HTTP timeout 2s;(3) 有限重試 —— 單批最多 2 次、指數退避;(4) 熔斷 —— 連續 5 次失敗→open,30s→half-open 探測;(5) fallback —— **第一版 stdout + HTTP 雙寫**。
@@ -28,7 +28,7 @@
 ## File Structure
 
 ```
-client/go.mod                     module docklog/client, go 1.22
+client/go.mod                     module ducklog/client, go 1.22
 client/wire.go                    entry struct、ndjson 編碼、slog.Level→level 字串、attrs 攤平
 client/wire_test.go
 client/config.go                  RemoteConfig + applyDefaults
@@ -64,12 +64,12 @@ client/e2e_test.go                (選配)對真 server binary 的端到端測�
 - [ ] **Step 1: 建模組**
 
 ```bash
-cd /home/dva/workspace/docklog/client
-go mod init docklog/client   # 產生 go.mod;若已存在則略過
+cd /home/dva/workspace/ducklog/client
+go mod init ducklog/client   # 產生 go.mod;若已存在則略過
 ```
 確認 `client/go.mod` 內容為:
 ```
-module docklog/client
+module ducklog/client
 
 go 1.22
 ```
@@ -136,7 +136,7 @@ Expected: FAIL(`entry` / `levelString` / `encodeNDJSON` 未定義)。
 
 `client/wire.go`:
 ```go
-// Package client 是 docklog 的純 stdlib Go 傳輸層:一個 slog.Handler + trace ID 傳遞。
+// Package client 是 ducklog 的純 stdlib Go 傳輸層:一個 slog.Handler + trace ID 傳遞。
 package client
 
 import (
@@ -155,7 +155,7 @@ type entry struct {
 	Attrs   map[string]any `json:"attrs,omitempty"`
 }
 
-// levelString 把 slog.Level 對應到 docklog 的小寫等級字串。
+// levelString 把 slog.Level 對應到 ducklog 的小寫等級字串。
 func levelString(l slog.Level) string {
 	switch {
 	case l < slog.LevelInfo:
@@ -189,9 +189,9 @@ Expected: PASS。
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /home/dva/workspace/docklog
+cd /home/dva/workspace/ducklog
 git add client/go.mod client/wire.go client/wire_test.go
-git -c user.name='docklog' -c user.email='dev@docklog.local' commit -m "feat(client): module scaffold + wire types"
+git -c user.name='ducklog' -c user.email='dev@ducklog.local' commit -m "feat(client): module scaffold + wire types"
 ```
 
 ---
@@ -311,9 +311,9 @@ Expected: PASS。
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /home/dva/workspace/docklog
+cd /home/dva/workspace/ducklog
 git add client/trace.go client/trace_test.go
-git -c user.name='docklog' -c user.email='dev@docklog.local' commit -m "feat(client): trace id generation + context propagation"
+git -c user.name='ducklog' -c user.email='dev@ducklog.local' commit -m "feat(client): trace id generation + context propagation"
 ```
 
 ---
@@ -443,9 +443,9 @@ Expected: PASS。
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /home/dva/workspace/docklog
+cd /home/dva/workspace/ducklog
 git add client/breaker.go client/breaker_test.go
-git -c user.name='docklog' -c user.email='dev@docklog.local' commit -m "feat(client): consecutive-failure circuit breaker"
+git -c user.name='ducklog' -c user.email='dev@ducklog.local' commit -m "feat(client): consecutive-failure circuit breaker"
 ```
 
 ---
@@ -560,9 +560,9 @@ Expected: PASS。
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /home/dva/workspace/docklog
+cd /home/dva/workspace/ducklog
 git add client/config.go client/config_test.go
-git -c user.name='docklog' -c user.email='dev@docklog.local' commit -m "feat(client): RemoteConfig with defaults"
+git -c user.name='ducklog' -c user.email='dev@ducklog.local' commit -m "feat(client): RemoteConfig with defaults"
 ```
 
 ---
@@ -869,9 +869,9 @@ Expected: PASS(3 個 sender 測試)。
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /home/dva/workspace/docklog
+cd /home/dva/workspace/ducklog
 git add client/sender.go client/sender_test.go
-git -c user.name='docklog' -c user.email='dev@docklog.local' commit -m "feat(client): background batch sender with retry, breaker, non-blocking drop"
+git -c user.name='ducklog' -c user.email='dev@ducklog.local' commit -m "feat(client): background batch sender with retry, breaker, non-blocking drop"
 ```
 
 ---
@@ -1021,7 +1021,7 @@ import (
 	"time"
 )
 
-// RemoteHandler 是把 slog record 送往 docklog 的 slog.Handler。
+// RemoteHandler 是把 slog record 送往 ducklog 的 slog.Handler。
 // Handle 永不阻塞:同時雙寫 Fallback(stdout)與非阻塞入 sender queue。
 type RemoteHandler struct {
 	cfg      RemoteConfig
@@ -1090,7 +1090,7 @@ func (h *RemoteHandler) Close() error {
 	dropped := h.snd.close()
 	if dropped > 0 {
 		fmt.Fprintf(h.cfg.Fallback,
-			`{"_docklog_client":"shutdown","dropped":%d}`+"\n", dropped)
+			`{"_ducklog_client":"shutdown","dropped":%d}`+"\n", dropped)
 	}
 	return nil
 }
@@ -1129,9 +1129,9 @@ Expected: PASS(4 個 handler 測試)。
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /home/dva/workspace/docklog
+cd /home/dva/workspace/ducklog
 git add client/handler.go client/handler_test.go
-git -c user.name='docklog' -c user.email='dev@docklog.local' commit -m "feat(client): slog.Handler with dual-write, trace, non-blocking, Close"
+git -c user.name='ducklog' -c user.email='dev@ducklog.local' commit -m "feat(client): slog.Handler with dual-write, trace, non-blocking, Close"
 ```
 
 ---
@@ -1265,14 +1265,14 @@ Expected: 全部 PASS,無 race。
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /home/dva/workspace/docklog
+cd /home/dva/workspace/ducklog
 git add client/middleware.go client/middleware_test.go
-git -c user.name='docklog' -c user.email='dev@docklog.local' commit -m "feat(client): trace id HTTP middleware + outbound propagation"
+git -c user.name='ducklog' -c user.email='dev@ducklog.local' commit -m "feat(client): trace id HTTP middleware + outbound propagation"
 ```
 
 ---
 
-## Task 7:(選配)端到端測試 —— 打真 docklog server
+## Task 7:(選配)端到端測試 —— 打真 ducklog server
 
 **Files:**
 - Create: `client/e2e_test.go`
@@ -1282,7 +1282,7 @@ git -c user.name='docklog' -c user.email='dev@docklog.local' commit -m "feat(cli
 
 **因 Phase 1a 沒有 query API,真正的端到端驗證能力有限。建議本 task 只做「輕量煙霧」:**
 - `-short` 直接 skip。
-- 用 `GOTOOLCHAIN=go1.24.0 go build -o <tmp>/docklogd ../cmd/docklog`(跨模組,build server)。
+- 用 `GOTOOLCHAIN=go1.24.0 go build -o <tmp>/ducklogd ../cmd/ducklog`(跨模組,build server)。
 - 寫一個 server config(隨機 port、暫存 data dir、一個 ingest key)。
 - 啟 server,等 `/health` 回 200。
 - 用 `NewRemoteHandler` 送 5 筆 error、`Close()`。
@@ -1310,16 +1310,16 @@ func TestEndToEndAgainstRealServer(t *testing.T) {
 		t.Skip("端到端測試較重")
 	}
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "docklogd")
-	build := exec.Command("go", "build", "-o", bin, "../cmd/docklog")
+	bin := filepath.Join(tmp, "ducklogd")
+	build := exec.Command("go", "build", "-o", bin, "../cmd/ducklog")
 	build.Env = append(os.Environ(), "GOTOOLCHAIN=go1.24.0")
-	build.Dir = "." // client 目錄;../cmd/docklog 指到 server module
+	build.Dir = "." // client 目錄;../cmd/ducklog 指到 server module
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("build server: %v\n%s", err, out)
 	}
 	// 寫 config(隨機 port、tmp data dir、ingest key),啟 server,等 /health,
 	// 送 5 筆,Close,輪詢 /health 斷言 200 + 有 disk_usage 欄位。
-	// (實作者補完;若 ../cmd/docklog 因跨模組 build 失敗,改用 go run 並在 report 說明。)
+	// (實作者補完;若 ../cmd/ducklog 因跨模組 build 失敗,改用 go run 並在 report 說明。)
 	_ = bin
 	_ = http.MethodGet
 	_ = slog.LevelError
@@ -1327,7 +1327,7 @@ func TestEndToEndAgainstRealServer(t *testing.T) {
 }
 ```
 
-> **實作者注意**:此 task 較 fiddly(跨模組 build、server 生命週期、port 管理)。若跨模組 `go build ../cmd/docklog` 因兩個獨立 module 而無法從 client 目錄直接建,fallback:在 repo 根用 `GOTOOLCHAIN=go1.24.0 go build -o <tmp>/docklogd ./cmd/docklog`(server module),再由測試以絕對路徑啟動。若整體過於脆弱,標 `DONE_WITH_CONCERNS` 並在 report 說明改用手動驗證步驟,不要硬湊一個 flaky 測試。
+> **實作者注意**:此 task 較 fiddly(跨模組 build、server 生命週期、port 管理)。若跨模組 `go build ../cmd/ducklog` 因兩個獨立 module 而無法從 client 目錄直接建,fallback:在 repo 根用 `GOTOOLCHAIN=go1.24.0 go build -o <tmp>/ducklogd ./cmd/ducklog`(server module),再由測試以絕對路徑啟動。若整體過於脆弱,標 `DONE_WITH_CONCERNS` 並在 report 說明改用手動驗證步驟,不要硬湊一個 flaky 測試。
 
 - [ ] **Step 2: 執行**
 
@@ -1337,9 +1337,9 @@ Expected: PASS,或 `-short` 時 skip。
 - [ ] **Step 3: Commit**
 
 ```bash
-cd /home/dva/workspace/docklog
+cd /home/dva/workspace/ducklog
 git add client/e2e_test.go
-git -c user.name='docklog' -c user.email='dev@docklog.local' commit -m "test(client): end-to-end smoke against real docklog server"
+git -c user.name='ducklog' -c user.email='dev@ducklog.local' commit -m "test(client): end-to-end smoke against real ducklog server"
 ```
 
 ---

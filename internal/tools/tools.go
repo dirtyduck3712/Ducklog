@@ -4,7 +4,7 @@ package tools
 import (
 	"strconv"
 
-	"docklog/internal/bound"
+	"ducklog/internal/bound"
 )
 
 const SchemaHint = "可用欄位:_time, service, level, trace_id, _msg。時間範圍如 '1h' / '30m' / '2h'。"

@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-// RemoteHandler 是把 slog record 送往 docklog 的 slog.Handler。
+// RemoteHandler 是把 slog record 送往 ducklog 的 slog.Handler。
 // Handle 永不阻塞:同時雙寫 Fallback(stdout)與非阻塞入 sender queue。
 type RemoteHandler struct {
 	cfg    RemoteConfig
@@ -81,7 +81,7 @@ func (h *RemoteHandler) Close() error {
 	dropped := h.snd.close()
 	if dropped > 0 {
 		h.fbMu.writeRaw([]byte(fmt.Sprintf(
-			`{"_docklog_client":"shutdown","dropped":%d}`+"\n", dropped)))
+			`{"_ducklog_client":"shutdown","dropped":%d}`+"\n", dropped)))
 	}
 	return nil
 }

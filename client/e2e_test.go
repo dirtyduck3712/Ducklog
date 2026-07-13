@@ -120,7 +120,7 @@ func startVL(t *testing.T) string {
 
 	bin := os.Getenv("VL_BINARY")
 	if bin == "" {
-		bin = "/tmp/claude-1000/-home-dva-workspace-docklog/" +
+		bin = "/tmp/claude-1000/-home-dva-workspace-ducklog/" +
 			"f9022b92-4536-49e5-8e38-c24f296b0368/scratchpad/vl/victoria-logs-prod"
 	}
 	if _, err := os.Stat(bin); err != nil {

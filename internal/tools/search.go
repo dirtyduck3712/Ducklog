@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"docklog/internal/bound"
-	"docklog/internal/vl"
+	"ducklog/internal/bound"
+	"ducklog/internal/vl"
 )
 
 func SearchLogs(ctx context.Context, c *vl.Client, query, timeRange string, limit int) bound.Envelope {

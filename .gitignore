@@ -1,6 +1,6 @@
 data/
-/docklog
-/docklog-mcp
+/ducklog
+/ducklog-mcp
 /config.yaml
 *.duckdb
 *.ducklake

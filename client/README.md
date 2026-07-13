@@ -1,4 +1,4 @@
-# docklog/client
+# ducklog/client
 
 純 stdlib 的 Go 傳輸層:一個 `slog.Handler`,把 log record 以 NDJSON
 (每行一個 JSON 物件)POST 到後端,並支援 trace ID 傳遞。

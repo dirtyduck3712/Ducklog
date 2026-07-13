@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"docklog/internal/bound"
-	"docklog/internal/vl"
+	"ducklog/internal/bound"
+	"ducklog/internal/vl"
 )
 
 func GetTrace(ctx context.Context, c *vl.Client, traceID string) bound.Envelope {

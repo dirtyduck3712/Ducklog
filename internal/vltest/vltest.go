@@ -16,7 +16,7 @@ import (
 )
 
 // scratchBinary 是 task brief 指定的 VL binary 預設位置。
-const scratchBinary = "/tmp/claude-1000/-home-dva-workspace-docklog/f9022b92-4536-49e5-8e38-c24f296b0368/scratchpad/vl/victoria-logs-prod"
+const scratchBinary = "/tmp/claude-1000/-home-dva-workspace-ducklog/f9022b92-4536-49e5-8e38-c24f296b0368/scratchpad/vl/victoria-logs-prod"
 
 // StartVL 啟動一個臨時 VictoriaLogs 實例,回傳 base URL(如 http://127.0.0.1:12345)。
 // 找不到 binary 時 t.Skip。程序在 t.Cleanup 時被 kill。

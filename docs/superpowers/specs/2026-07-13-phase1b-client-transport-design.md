@@ -6,7 +6,7 @@
 ## 目標與非目標
 
 **目標**
-- 一個 `slog.Handler`,讓 Go 服務用標準 `log/slog` 就能把 log 送進 docklog server。
+- 一個 `slog.Handler`,讓 Go 服務用標準 `log/slog` 就能把 log 送進 ducklog server。
 - 日誌系統掛掉**絕不拖垮應用**(失敗模式 #6):非阻塞、timeout、有限重試、熔斷、stdout fallback。
 - Trace ID 第一版就有:middleware 讀/生成、跨服務傳遞、handler 自動帶上。
 
@@ -17,9 +17,9 @@
 
 ## 模組與相依
 
-- **獨立模組** `client/`,自己的 `go.mod`,module path `docklog/client`。
+- **獨立模組** `client/`,自己的 `go.mod`,module path `ducklog/client`。
 - **零外部相依**:只用 stdlib(`net/http`、`log/slog`、`context`、`crypto/rand`、`encoding/json`、`sync`、`time`、`bufio`）。
-- **不 import server 的 `docklog/...`**。client 自定義 wire struct;共享的是 JSON 線上契約,不是 Go 型別。
+- **不 import server 的 `ducklog/...`**。client 自定義 wire struct;共享的是 JSON 線上契約,不是 Go 型別。
 - 下游服務 import 它**不會**揹上 go-duckdb / CGO / go1.24 toolchain 要求。
 
 ## Wire 契約(與 server /ingest 對齊)
@@ -102,7 +102,7 @@ type RemoteConfig struct {
 - **timeout**:endpoint hang,斷言 2s 後放棄、不阻塞 sender。
 - **Close 排空**:入隊數筆後 `Close`,斷言假 endpoint 收到全部(在 timeout 內)。
 - **trace**:middleware 讀入站 header / 生成 / 驗證壞值換新;handler 從 ctx 帶出 trace_id 到 wire。
-- **端到端(選配,一個)**:啟真 docklog server binary(來自 Phase 1a),slog 打幾筆,查 server 存到了 —— 跨模組,標 `-short` 可略。
+- **端到端(選配,一個)**:啟真 ducklog server binary(來自 Phase 1a),slog 打幾筆,查 server 存到了 —— 跨模組,標 `-short` 可略。
 
 ## 明確排除(YAGNI)
 - Node pino(Phase 1c)、OpenTelemetry、動態 config 熱更新、可關的雙寫(第一版固定雙寫)、gzip 壓縮、TLS 客製。
