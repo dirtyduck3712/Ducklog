@@ -103,10 +103,17 @@ func TestSearchLogsMarksTruncation(t *testing.T) {
 }
 
 func TestSearchRequiresTimeRange(t *testing.T) {
-	base := vltest.StartVL(t)
-	c := vl.New(base, 10*time.Second)
+	c := vl.New("http://127.0.0.1:1", time.Second)
 	e := SearchLogs(context.Background(), c, "level:=info", "", 100)
 	if e.Status != "error" || e.ErrorCode != "MISSING_TIME_RANGE" {
 		t.Fatalf("空 range 應拒:%+v", e)
+	}
+}
+
+func TestSearchRejectsPipedQuery(t *testing.T) {
+	c := vl.New("http://127.0.0.1:1", time.Second)
+	e := SearchLogs(context.Background(), c, "level:=info | stats count()", "1h", 100)
+	if e.Status != "error" || e.ErrorCode != "MALFORMED_QUERY" {
+		t.Fatalf("含 pipe 應拒:%+v", e)
 	}
 }

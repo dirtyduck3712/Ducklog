@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"docklog/internal/bound"
 	"docklog/internal/vl"
@@ -11,6 +12,9 @@ import (
 func SearchLogs(ctx context.Context, c *vl.Client, query, timeRange string, limit int) bound.Envelope {
 	if e := requireRange(timeRange); e != nil {
 		return *e
+	}
+	if strings.Contains(query, "|") {
+		return bound.Err("MALFORMED_QUERY", "query 不可含 pipe (|);只接受 LogsQL filter 運算式", "把 pipe 邏輯交給對應的專用工具,或只傳 filter 條件")
 	}
 	if limit <= 0 || limit > defaultLimitCap {
 		limit = 100

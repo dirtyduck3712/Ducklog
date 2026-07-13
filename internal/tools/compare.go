@@ -20,7 +20,11 @@ func ComparePeriods(ctx context.Context, c *vl.Client, service, t1, t2 string) b
 	if err != nil {
 		return bound.Err("QUERY_FAILED", err.Error(), "")
 	}
-	// 以 _msg 為 key,算 t2 相對 t1 的變化(新出現 / 次數暴增)
+	return boundOrOK(diffPatterns(p1, p2))
+}
+
+// diffPatterns 以 _msg 為 key,算 p2 相對 p1 的變化:新出現(new)或次數暴增(now > was*2)。
+func diffPatterns(p1, p2 []map[string]any) []map[string]any {
 	base := map[string]int64{}
 	for _, r := range p1 {
 		base[str(r["_msg"])] = toInt(r["n"])
@@ -33,5 +37,5 @@ func ComparePeriods(ctx context.Context, c *vl.Client, service, t1, t2 string) b
 			diffs = append(diffs, map[string]any{"pattern": msg, "t1_count": was, "t2_count": now, "new": was == 0})
 		}
 	}
-	return bound.OK(diffs, SchemaHint)
+	return diffs
 }
