@@ -111,6 +111,17 @@ func TestCoreRespectsMinLevel(t *testing.T) {
 	}
 }
 
+// sinkLevel 決定 ducklog sink core 的最低等級:未設 -> Info,有設 -> 跟隨。
+// 迴歸守衛:歷史上 Tee 寫死 Debug,導致 LOG_LEVEL=info 仍把 debug 灌進 VL。
+func TestSinkLevel(t *testing.T) {
+	if got := sinkLevel(client.RemoteConfig{}); got != slog.LevelInfo {
+		t.Errorf("未設 Level 應預設 Info,got %v", got)
+	}
+	if got := sinkLevel(client.RemoteConfig{Level: slog.LevelWarn}); got != slog.LevelWarn {
+		t.Errorf("有設 Level 應跟隨,got %v want Warn", got)
+	}
+}
+
 // Tee 應回一個可用的 core + 非 nil 的 cleanup(建構不需要 VL 連線)。
 func TestTeeReturnsCoreAndCleanup(t *testing.T) {
 	base := zapcore.NewNopCore()

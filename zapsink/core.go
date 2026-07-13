@@ -63,18 +63,28 @@ func (c *Core) Write(ent zapcore.Entry, fields []zapcore.Field) error {
 func (c *Core) Sync() error { return nil }
 
 // Tee 把 base 與一個由 cfg 建立的 ducklog sink 併成一個 core,並回傳排空用的
-// cleanup func(關閉時呼叫以排空 transport queue)。等級過濾交由 base logger 的
-// atomic level;ducklog core 接受所有到達的 entry。
+// cleanup func(關閉時呼叫以排空 transport queue)。ducklog core 依 cfg.Level 過濾
+// (未設則預設 Info)。注意 zapcore.NewTee 對每個 sub-core 獨立評估 Enabled,base
+// logger 的 atomic level 不會 gate 併排的 ducklog core,故此處必須自帶等級過濾。
 //
 //	logger := zap.New(...)  // 或用 zapCfg.Build(zap.WrapCore(...))
 //	core, stop := zapsink.Tee(baseCore, client.RemoteConfig{
 //	    Endpoint: vlURL + "/insert/jsonline?_time_field=ts&_msg_field=message&_stream_fields=service",
 //	    Service:  "my-service",
+//	    Level:    slog.LevelInfo,
 //	})
 //	defer stop()
 func Tee(base zapcore.Core, cfg client.RemoteConfig) (zapcore.Core, func()) {
 	h := client.NewRemoteHandler(cfg)
-	return zapcore.NewTee(base, NewCore(h, slog.LevelDebug)), func() { _ = h.Close() }
+	return zapcore.NewTee(base, NewCore(h, sinkLevel(cfg))), func() { _ = h.Close() }
+}
+
+// sinkLevel 取 cfg 設定的最低等級,未設則預設 Info(與 client.RemoteHandler 一致)。
+func sinkLevel(cfg client.RemoteConfig) slog.Level {
+	if cfg.Level != nil {
+		return cfg.Level.Level()
+	}
+	return slog.LevelInfo
 }
 
 // zapToSlogLevel 把 zap 等級對映到 slog 等級(zap 間距 1、slog 間距 4,故 ×4)。
