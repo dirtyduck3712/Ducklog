@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -102,7 +103,21 @@ func flattenAttr(dst map[string]any, prefix string, a slog.Attr) {
 	if a.Key == "" { // slog: empty-key non-group attr is elided
 		return
 	}
-	dst[prefix+a.Key] = v.Any()
+	dst[prefix+a.Key] = jsonSafe(v)
+}
+
+// jsonSafe 確保 attr 值可被 JSON 序列化。可序列化的原樣保留;不可序列化的
+// (函式、channel、內含此類欄位的結構 —— 例如 pgconn.Config)轉成字串形式。
+// 否則單一毒值會讓 encodeNDJSON 失敗、整批 log 被靜默丟棄。
+func jsonSafe(v slog.Value) any {
+	a := v.Any()
+	if v.Kind() != slog.KindAny {
+		return a // 基本型別(字串/數字/bool/時間/Duration)一定可序列化
+	}
+	if _, err := json.Marshal(a); err != nil {
+		return fmt.Sprintf("%+v", a)
+	}
+	return a
 }
 
 func joinGroups(g []string) string {
