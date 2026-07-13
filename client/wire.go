@@ -32,11 +32,18 @@ func levelString(l slog.Level) string {
 }
 
 // encodeNDJSON 把 entries 寫成每行一筆的 NDJSON。
+// 對單一無法序列化的 entry 有韌性:json.Encoder.Encode 先 marshal 到內部 buffer,
+// marshal 失敗時不會寫出部分資料,故可安全改送精簡版 —— 保留 ts/service/level/
+// message,只把 attrs 換成 _encode_error 標記。一顆毒值不會丟整批,也不丟該行。
 func encodeNDJSON(w io.Writer, entries []entry) error {
 	enc := json.NewEncoder(w) // Encode 會自動補換行
 	for i := range entries {
 		if err := enc.Encode(&entries[i]); err != nil {
-			return err
+			safe := entries[i]
+			safe.Attrs = map[string]any{"_encode_error": err.Error()}
+			if err := enc.Encode(&safe); err != nil {
+				return err // 連精簡版都失敗(理論上不會發生)
+			}
 		}
 	}
 	return nil
