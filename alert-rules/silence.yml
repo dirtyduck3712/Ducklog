@@ -1,0 +1,12 @@
+groups:
+  - name: ducklog-service-silence
+    type: vlogs
+    interval: 1m
+    rules: []
+      # 取消註解、移除上面的 [],並改成你真的要監控靜默的 service。
+      # service 名必須「存在過」(曾產過 log),否則不分組 stats 對不存在的 service 恆回 n=0 → 恆 firing。
+      # - alert: ServiceSilent
+      #   expr: 'service:=checkout _time:10m | stats count() as n | filter n:0'
+      #   for: 0s
+      #   labels: { severity: critical, service: checkout }
+      #   annotations: { summary: 'service checkout 已靜默 ≥10m(_time:10m 內 0 筆 log)' }

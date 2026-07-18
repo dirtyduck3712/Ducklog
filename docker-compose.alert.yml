@@ -30,8 +30,7 @@ services:
     command:
       - -datasource.url=http://victorialogs:9428
       - -rule.defaultRuleType=vlogs
-      - -rule=/etc/alert-rules/error-rate.yml
-      - -rule=/etc/alert-rules/pattern.yml
+      - -rule=/etc/alert-rules/*.yml
       - -remoteWrite.url=http://victoriametrics:8428
       - -remoteRead.url=http://victoriametrics:8428
       - -notifier.url=http://alertmanager:9093
