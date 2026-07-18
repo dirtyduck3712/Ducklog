@@ -39,7 +39,7 @@ func fakeVL(t *testing.T) *vl.Client {
 }
 
 // TestWiring 端到端驗證 wiring:透過 in-process MCP client 走完整 protocol
-// (Initialize → ListTools → CallTool),確認 4 個 tool 註冊正確,且一次真正的
+// (Initialize → ListTools → CallTool),確認 5 個 tool 註冊正確,且一次真正的
 // tool 呼叫會回傳 JSON 序列化的 bound.Envelope。
 func TestWiring(t *testing.T) {
 	s := NewServer(fakeVL(t))
@@ -61,7 +61,7 @@ func TestWiring(t *testing.T) {
 		t.Fatalf("Initialize: %v", err)
 	}
 
-	// 1) 4 個 tool 以預期名稱註冊。
+	// 1) 5 個 tool 以預期名稱註冊。
 	lt, err := cli.ListTools(ctx, mcp.ListToolsRequest{})
 	if err != nil {
 		t.Fatalf("ListTools: %v", err)
@@ -71,7 +71,7 @@ func TestWiring(t *testing.T) {
 		got = append(got, tool.Name)
 	}
 	sort.Strings(got)
-	want := []string{"compare_periods", "get_trace", "search_logs", "summarize_errors"}
+	want := []string{"compare_periods", "get_trace", "run_logsql", "search_logs", "summarize_errors"}
 	if strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Fatalf("registered tools = %v, want %v", got, want)
 	}
