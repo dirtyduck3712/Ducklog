@@ -73,4 +73,5 @@ vmalert 的兩個明確 `-rule=/etc/alert-rules/error-rate.yml`、`-rule=/etc/al
 - 需手動維護清單;service 名打錯/從未存在 → 恆 firing(防呆:預設空 group + README 警示)。
 - 低頻/批次型 service 需調大 `_time:` 窗或不納入(否則正常間歇誤報)。
 - e2e 用短窗(`_time:1m`)驗機制;10m 預設窗不進自動測試(同 error-rate `for:5m` 取捨)。
+- **冷啟/重啟瞬時誤報**(e2e 實測浮現):vmalert 剛啟動、VL 剛清空、或某 service 剛部署還沒產第一批 log 時,`_time:W | filter n:0` 因窗內 0 筆而短暫 firing。屬預期(service 確實還沒 log),但 vmalert 重啟後第一個窗會有瞬時全體 `ServiceSilent` 雜訊。緩解:rule 加 `for:`(如 `for: 2m`)要求持續靜默才告警,或靠 Alertmanager `group_wait`/`repeat_interval` 收斂。已記入 README。
 - volume 異常(log 量暴跌但非 0)不在本 task 範圍;同機制換 `filter n:<下限>` 可做,屬另一條 backlog。
