@@ -1,0 +1,13 @@
+groups:
+  - name: ducklog-error-rate
+    type: vlogs
+    interval: 1m
+    rules:
+      # 固定門檻(非真「突增」,見 spec caveat):每 service 1m 視窗 error 數超過門檻即報
+      - alert: HighErrorRate
+        expr: 'level:=error | stats by (service) count() as errs | filter errs:>50'
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: '{{ index .Labels "service" }}: {{ $value }} errors in 1m window'

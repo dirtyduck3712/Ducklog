@@ -6,3 +6,6 @@ data/
 *.ducklake
 *.ducklake.wal
 crashbin
+.env
+alertmanager/alertmanager.yml
+docker-compose.e2e.yml

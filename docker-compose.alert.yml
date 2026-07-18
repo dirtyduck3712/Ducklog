@@ -1,0 +1,74 @@
+# docker-compose.alert.yml — ducklog 告警 stack(off-by-default,獨立於手動 binary 流程)。
+# 啟動: docker compose --env-file .env -f docker-compose.alert.yml up -d
+name: ducklog-alert
+
+services:
+  victorialogs:
+    image: ${VL_IMAGE_TAG}
+    command:
+      - -storageDataPath=/vl-data
+      - -retentionPeriod=30d
+      - -httpListenAddr=:9428
+    volumes:
+      - vl-data:/vl-data
+    ports:
+      - "127.0.0.1:19428:9428"
+
+  victoriametrics:
+    image: ${VM_IMAGE_TAG}
+    command:
+      - -storageDataPath=/vm-data
+      - -httpListenAddr=:8428
+    volumes:
+      - vm-data:/vm-data
+    ports:
+      - "127.0.0.1:18428:8428"
+
+  vmalert:
+    image: ${VMALERT_IMAGE_TAG}
+    depends_on: [victorialogs, victoriametrics, alertmanager]
+    command:
+      - -datasource.url=http://victorialogs:9428
+      - -rule.defaultRuleType=vlogs
+      - -rule=/etc/alert-rules/error-rate.yml
+      - -rule=/etc/alert-rules/pattern.yml
+      - -remoteWrite.url=http://victoriametrics:8428
+      - -remoteRead.url=http://victoriametrics:8428
+      - -notifier.url=http://alertmanager:9093
+      - -httpListenAddr=:8880
+      # VL 開 Basic Auth 時,取消下面兩行註解(值由 .env 帶入):
+      # - -datasource.basicAuth.username=${DUCKLOG_VL_USERNAME}
+      # - -datasource.basicAuth.password=${DUCKLOG_VL_PASSWORD}
+    volumes:
+      - ./alert-rules:/etc/alert-rules:ro
+    ports:
+      - "127.0.0.1:18880:8880"
+
+  alertmanager:
+    image: ${ALERTMANAGER_IMAGE_TAG}
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    ports:
+      - "127.0.0.1:19093:9093"
+
+  # 可選:MCP server(profile=mcp 才起);不參與 alert 鏈
+  ducklog-mcp:
+    profiles: [mcp]
+    build:
+      context: .
+      dockerfile_inline: |
+        FROM golang:1.24 AS build
+        WORKDIR /src
+        COPY . .
+        RUN go build -o /ducklog-mcp ./cmd/ducklog-mcp
+        FROM debian:stable-slim
+        COPY --from=build /ducklog-mcp /ducklog-mcp
+        ENTRYPOINT ["/ducklog-mcp"]
+    environment:
+      - VL_URL=http://victorialogs:9428
+
+volumes:
+  vl-data:
+  vm-data:

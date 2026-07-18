@@ -1,0 +1,16 @@
+route:
+  receiver: ducklog-default
+  group_by: [alertname, service]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+receivers:
+  - name: ducklog-default
+    webhook_configs:
+      - url: ${DUCKLOG_ALERT_WEBHOOK_URL}
+        send_resolved: true
+    telegram_configs:
+      - bot_token: ${DUCKLOG_TELEGRAM_BOT_TOKEN}
+        chat_id: ${DUCKLOG_TELEGRAM_CHAT_ID}
+        parse_mode: HTML
+        send_resolved: true
