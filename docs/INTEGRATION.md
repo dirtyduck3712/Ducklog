@@ -19,6 +19,8 @@ go get github.com/dirtyduck3712/ducklog/zapsink@latest
 ```
 import 用完整路徑(見下方各節)。
 
+> Go 版本:`client` 需 Go ≥ 1.22、`zapsink` 需 Go ≥ 1.24。
+
 > 本機開發 ducklog 自身時,zapsink 以 `replace => ../client` 連本地 client;這只影響 repo 內開發,不影響 `go get` 的消費者。
 
 ---
