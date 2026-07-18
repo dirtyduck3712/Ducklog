@@ -52,6 +52,15 @@ func NewServer(c *vl.Client) *server.MCPServer {
 		return tools.ComparePeriods(ctx, c, str(a["service"]), str(a["t1"]), str(a["t2"]))
 	}))
 
+	s.AddTool(mcp.NewTool("run_logsql",
+		mcp.WithDescription("逃生口:執行任意 LogsQL pipeline。僅在 summarize_errors / search_logs / get_trace / compare_periods 都不合用時才用"),
+		mcp.WithString("query", mcp.Required(), mcp.Description("任意 LogsQL pipeline,如 level:=error | stats by (service) count()")),
+		mcp.WithString("time_range", mcp.Required(), mcp.Description("如 1h / 30m")),
+		mcp.WithNumber("limit", mcp.Description("上限,預設 100")),
+	), wrap(func(ctx context.Context, a map[string]any) bound.Envelope {
+		return tools.RunLogsQL(ctx, c, str(a["query"]), str(a["time_range"]), toInt(a["limit"]))
+	}))
+
 	return s
 }
 
