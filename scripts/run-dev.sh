@@ -9,6 +9,8 @@
 #   VL_BINARY   victoria-logs-prod 的路徑（vl 子命令用；未設則試 PATH，再提示下載）
 #   VL_DATA     storage 目錄（預設 ./data/victoria-logs）
 #   VL_URL      MCP server 要連的 VL 位址（mcp 子命令用；預設 http://127.0.0.1:9428）
+#   VL_HTTP_USER 若設,VL 以 Basic Auth 啟動(需搭 VL_HTTP_PASS)
+#   VL_HTTP_PASS Basic Auth 密碼
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -52,10 +54,16 @@ cmd_vl() {
   echo "啟動 VictoriaLogs: $bin" >&2
   echo "vmui:  http://$VL_ADDR/select/vmui" >&2
   echo "資料:  $VL_DATA（retention 30d）" >&2
+  local auth=()
+  if [[ -n "${VL_HTTP_USER:-}" ]]; then
+    auth=(-httpAuth.username="$VL_HTTP_USER" -httpAuth.password="${VL_HTTP_PASS:-}")
+    echo "auth:  Basic Auth 已開(user=$VL_HTTP_USER)" >&2
+  fi
   exec "$bin" \
     -storageDataPath="$VL_DATA" \
     -retentionPeriod=30d \
-    -httpListenAddr="$VL_ADDR"
+    -httpListenAddr="$VL_ADDR" \
+    "${auth[@]}"
 }
 
 cmd_mcp() {
@@ -70,6 +78,7 @@ ducklog-mcp 是 stdio MCP server，由 Claude Code 啟動，不用手動跑。
 在 Claude Code 註冊:
 
   claude mcp add ducklog --env VL_URL=$vl_url -- $bin
+  （VL 有開 auth 時再加 --env VL_USERNAME=<u> --env VL_PASSWORD=<p>）
 
 或等價的 JSON 設定:
 
