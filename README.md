@@ -118,7 +118,7 @@ tokens）；超量時**明確降級**（full → 抽樣 → count-only）並標 
 
 告警走獨立 stack,預設不啟,與手動 binary 流程解耦。
 
-1. `cp .env.example .env`,填入 `DUCKLOG_ALERT_WEBHOOK_URL`、`DUCKLOG_TELEGRAM_BOT_TOKEN`、`DUCKLOG_TELEGRAM_CHAT_ID`;VL 若開 Basic Auth 另填 `DUCKLOG_VL_USERNAME/PASSWORD` 並取消 `docker-compose.alert.yml` 內 vmalert 的 basicAuth 兩行註解。
+1. `cp .env.example .env`,填入 `DUCKLOG_ALERT_WEBHOOK_URL`、`DUCKLOG_TELEGRAM_BOT_TOKEN`、`DUCKLOG_TELEGRAM_CHAT_ID`;VL 若開 Basic Auth 另填 `DUCKLOG_VL_USERNAME/PASSWORD` 並取消 `docker-compose.alert.yml` 內 vmalert 的 basicAuth 兩行註解。若要在本 stack 自帶的 `victorialogs` service 上實際開 auth,還需在 `docker-compose.alert.yml` 的 `victorialogs` service command 加上 `-httpAuth.username=... -httpAuth.password=...`(值對應 `.env` 的 `DUCKLOG_VL_USERNAME/PASSWORD`)。
 2. 渲染 Alertmanager config:`scripts/render-alertmanager-config.sh .env`
 3. 起 stack:`docker compose --env-file .env -f docker-compose.alert.yml up -d`
 4. rule 在 `alert-rules/`(門檻/關鍵字/interval 改這裡即可,不需重建 image)。
