@@ -1,6 +1,6 @@
 ---
 name: ducklog-integration
-description: Wire a Go service's logs into ducklog (→ VictoriaLogs) so they're queryable by the ducklog MCP tools. Use when the user asks to "接 ducklog" / "integrate ducklog" / "send logs to ducklog or VictoriaLogs" / "hook up ducklog logging" in a Go project. Detects whether the service uses log/slog or go.uber.org/zap and applies the correct wiring, gated behind a DUCKLOG_VL_URL env toggle. Also covers registering the ducklog MCP server in Claude Code.
+description: Wire a Go service's logs into ducklog (→ VictoriaLogs) so they're queryable by the ducklog MCP tools. Use when the user asks to "接 ducklog" / "integrate ducklog" / "send logs to ducklog or VictoriaLogs" / "hook up ducklog logging" in a Go project. Detects whether the service uses log/slog or go.uber.org/zap and applies the correct wiring, gated behind a DUCKLOG_VL_URL env toggle. Also migrates an existing OLD-style integration (local replace / bare `ducklog/client` import / removed `APIKey` field) to the published `go get` modules — use when the user says "migrate ducklog", "更新 ducklog 接法", "改 go get", or a rebuild fails with `unknown field APIKey`. Also covers registering the ducklog MCP server in Claude Code.
 tools: Read, Glob, Grep, Bash, Edit
 ---
 
@@ -12,9 +12,59 @@ Architecture: `service ──log transport──▶ VictoriaLogs ◀──LogsQL
 
 The authoritative reference (paths, field mapping, gotchas, FAQ) is `docs/INTEGRATION.md` in the ducklog repo. Read it if anything here is unclear.
 
+**Fresh integration or migration?** If the service already wires ducklog the
+old way (local `replace`, bare `import "ducklog/client"`, or an `APIKey` field),
+go to **§Migrate**. Otherwise continue with the fresh-install steps below.
+
 ## Locate ducklog
 
 Find the ducklog repo (contains `client/`, `zapsink/`, `cmd/ducklog-mcp/`). Default local path: `/home/dva/workspace/ducklog`. If not there, ask the user for the path. You need it to build the MCP server (Step 4); the transport modules themselves are `go get`-able (Step 2), no local path required.
+
+## Migrate — an existing (old-style) integration
+
+Use this **instead of Steps 1–2** when the service was integrated the old way.
+Detect it first, in the service's module root:
+```bash
+grep -rn '"ducklog/client"\|"ducklog/zapsink"' --include='*.go' .  # bare imports (not github.com/...)
+grep -n  'ducklog/client\|ducklog/zapsink' go.mod                 # old replace/require wiring
+grep -rn 'APIKey' --include='*.go' .                              # the breaking field
+```
+
+**Safety gate:** if the wiring is non-standard — multiple `RemoteConfig{}`
+sites, custom fields, or a *vendored copy* of `client/` rather than a
+`replace` — STOP and confirm the plan with the user, showing the intended
+diff, before editing.
+
+Do both (full migration):
+
+1. **Remove the `APIKey` field — REQUIRED.** ducklog removed
+   `RemoteConfig.APIKey`; any literal that still sets it fails to compile with
+   `unknown field APIKey in struct literal of type client.RemoteConfig`. Delete
+   the `APIKey: ...` line from every `RemoteConfig{...}`. Do **not** add
+   `Username`/`Password` unless the service actually needs Basic Auth against an
+   auth-enabled VL.
+
+2. **Move module resolution from local `replace` to `go get`.** In the service's
+   module root:
+   ```bash
+   go mod edit -dropreplace=ducklog/client -droprequire=ducklog/client
+   go get github.com/dirtyduck3712/ducklog/client@latest
+   # zap services also:
+   go mod edit -dropreplace=ducklog/zapsink -droprequire=ducklog/zapsink
+   go get github.com/dirtyduck3712/ducklog/zapsink@latest
+   ```
+   Then update imports: `ducklog/client` → `github.com/dirtyduck3712/ducklog/client`
+   (same for `zapsink`). `zapsink` needs Go ≥ 1.24 — if the service is on an
+   older Go, flag it to the user; do not bump their toolchain silently.
+
+Then run **Step 3** (verify build/vet) and **Step 4** (run & verify).
+
+> The module rename **alone** does NOT break old `replace`-based builds — a
+> filesystem `replace` maps the import to the local dir regardless of that dir's
+> `go.mod` module name (`go build`/`go mod tidy`/`go vet` all pass). The only
+> rebuild-breaker is the removed `APIKey` field. Already-deployed binaries are
+> unaffected either way — this migration is for the *next* rebuild, not a
+> running-prod emergency.
 
 ## Step 1 — Detect the service's logging library
 
