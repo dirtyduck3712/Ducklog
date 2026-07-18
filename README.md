@@ -114,6 +114,24 @@ tokens）；超量時**明確降級**（full → 抽樣 → count-only）並標 
 可查欄位: `_time`, `service`, `level`, `trace_id`, `_msg`（transport 送的 `attrs` 會被 VL
 攤平成 `attrs.<key>`）。時間範圍如 `1h` / `30m` / `2h`。
 
+## 告警(alert,選用)
+
+告警走獨立 stack,預設不啟,與手動 binary 流程解耦。
+
+1. `cp .env.example .env`,填入 `DUCKLOG_ALERT_WEBHOOK_URL`、`DUCKLOG_TELEGRAM_BOT_TOKEN`、`DUCKLOG_TELEGRAM_CHAT_ID`;VL 若開 Basic Auth 另填 `DUCKLOG_VL_USERNAME/PASSWORD` 並取消 `docker-compose.alert.yml` 內 vmalert 的 basicAuth 兩行註解。
+2. 渲染 Alertmanager config:`scripts/render-alertmanager-config.sh .env`
+3. 起 stack:`docker compose --env-file .env -f docker-compose.alert.yml up -d`
+4. rule 在 `alert-rules/`(門檻/關鍵字/interval 改這裡即可,不需重建 image)。
+
+**Rule 集**:`HighErrorRate`(每 service 1m error 數 > 50,固定門檻非突增)、`FatalPattern`(panic/OOM/SIGSEGV 出現即報)。
+
+**端到端自測**:`scripts/test-alert-e2e.sh`(驗 ingest → firing → webhook)。
+
+**Telegram 手動驗收清單**(不進自動測試):
+- [ ] Telegram 真的收到告警訊息
+- [ ] 告警解除時 `send_resolved` 通知會來
+- [ ] VL 開 Basic Auth 時 vmalert 仍能查 VL(`/api/v1/rules` 有 group)
+
 ## 已知限制（v1）
 
 - **兩個 process**: VL + MCP server,兩者都是低運維的單一執行檔。
