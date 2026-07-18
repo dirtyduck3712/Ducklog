@@ -123,6 +123,8 @@ tokens）；超量時**明確降級**（full → 抽樣 → count-only）並標 
 3. 起 stack:`docker compose --env-file .env -f docker-compose.alert.yml up -d`
 4. rule 在 `alert-rules/`(門檻/關鍵字/interval 改這裡即可,不需重建 image)。
 
+⚠️ `alert-rules/` 只應放合法的 vmalert rule YAML:vmalert 以 glob `*.yml` 載入,任何一個非法 rule 檔會讓 vmalert 無法啟動、拖垮所有告警(不只該檔)。
+
 **Rule 集**:`HighErrorRate`(每 service 1m error 數 > 50,固定門檻非突增)、`FatalPattern`(panic/OOM/SIGSEGV 出現即報)。
 
 **端到端自測**:`scripts/test-alert-e2e.sh`(驗 ingest → firing → webhook)。
@@ -131,6 +133,23 @@ tokens）；超量時**明確降級**（full → 抽樣 → count-only）並標 
 - [ ] Telegram 真的收到告警訊息
 - [ ] 告警解除時 `send_resolved` 通知會來
 - [ ] VL 開 Basic Auth 時 vmalert 仍能查 VL(`/api/v1/rules` 有 group)
+
+### service 靜默偵測
+
+`alert-rules/silence.yml` 預設空(不啟)。要監控某 service 靜默,取消範例註解、移除 `rules: []` 的 `[]`,每個 service 加一條:
+
+```yaml
+- alert: ServiceSilent
+  expr: 'service:=<你的service> _time:10m | stats count() as n | filter n:0'
+  for: 0s
+  labels: { severity: critical, service: <你的service> }
+  annotations: { summary: 'service <你的service> 已靜默 ≥10m' }
+```
+
+- `_time:` 是靜默判定窗(預設 10m,依 service 產 log 頻率各自調;低頻/批次型調大或不納入)。
+- ⚠️ service 名必須「存在過」(曾產過 log)。打錯名字或監控從未存在的 service → 不分組 stats 恆回 0 → **恆 firing**。
+- ⚠️ 冷啟/重啟瞬時誤報:vmalert 剛啟動、VL 剛清空、或某 service 剛部署還沒產第一批 log 時,`_time:10m | filter n:0` 會因窗內 0 筆而短暫 firing——屬預期行為(service 確實還沒 log)。若不想要重啟後的瞬時雜訊,可把 rule 的 `for:` 調大(例如 `for: 2m`)讓它持續靜默一段時間才告警,或靠 Alertmanager 的 `group_wait`/`repeat_interval` 收斂。
+- 自測機制:`scripts/test-silence-e2e.sh`(短窗驗 dead firing + alive 對照)。
 
 ## 已知限制（v1）
 
