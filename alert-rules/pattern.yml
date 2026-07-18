@@ -1,0 +1,13 @@
+groups:
+  - name: ducklog-fatal-pattern
+    type: vlogs
+    interval: 1m
+    rules:
+      # fatal 關鍵字一出現即報(門檻 0、for 0)
+      - alert: FatalPattern
+        expr: '"panic" OR "out of memory" OR "SIGSEGV" | stats count() as hits | filter hits:>0'
+        for: 0s
+        labels:
+          severity: critical
+        annotations:
+          summary: '{{ $value }} fatal-pattern hits in last 1m'
