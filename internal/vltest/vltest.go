@@ -18,9 +18,15 @@ import (
 // scratchBinary 是 task brief 指定的 VL binary 預設位置。
 const scratchBinary = "/tmp/claude-1000/-home-dva-workspace-ducklog/f9022b92-4536-49e5-8e38-c24f296b0368/scratchpad/vl/victoria-logs-prod"
 
-// StartVL 啟動一個臨時 VictoriaLogs 實例,回傳 base URL(如 http://127.0.0.1:12345)。
+// StartVL 啟動無 auth 的臨時 VictoriaLogs,回傳 base URL(如 http://127.0.0.1:12345)。
 // 找不到 binary 時 t.Skip。程序在 t.Cleanup 時被 kill。
-func StartVL(t testing.TB) string {
+func StartVL(t testing.TB) string { return startVL(t, "", "") }
+
+// StartVLWithAuth 啟動開了 HTTP Basic Auth 的臨時 VictoriaLogs。
+func StartVLWithAuth(t testing.TB, user, pass string) string { return startVL(t, user, pass) }
+
+// startVL 是 StartVL/StartVLWithAuth 的共用實作;user != "" 時開 Basic Auth。
+func startVL(t testing.TB, user, pass string) string {
 	t.Helper()
 
 	bin := os.Getenv("VL_BINARY")
@@ -33,11 +39,15 @@ func StartVL(t testing.TB) string {
 
 	port := freePort(t)
 
-	cmd := exec.Command(bin,
-		"-storageDataPath="+t.TempDir(),
-		"-httpListenAddr=127.0.0.1:"+strconv.Itoa(port),
+	args := []string{
+		"-storageDataPath=" + t.TempDir(),
+		"-httpListenAddr=127.0.0.1:" + strconv.Itoa(port),
 		"-retentionPeriod=30d",
-	)
+	}
+	if user != "" {
+		args = append(args, "-httpAuth.username="+user, "-httpAuth.password="+pass)
+	}
+	cmd := exec.Command(bin, args...)
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("啟動 VL 失敗: %v", err)
 	}
@@ -50,7 +60,11 @@ func StartVL(t testing.TB) string {
 
 	deadline := time.Now().Add(15 * time.Second)
 	for time.Now().Before(deadline) {
-		resp, err := http.Get(base + "/health")
+		req, _ := http.NewRequest(http.MethodGet, base+"/health", nil)
+		if user != "" {
+			req.SetBasicAuth(user, pass)
+		}
+		resp, err := http.DefaultClient.Do(req)
 		if err == nil {
 			resp.Body.Close()
 			if resp.StatusCode == 200 {

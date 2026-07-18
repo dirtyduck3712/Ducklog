@@ -24,6 +24,9 @@ func resolveVLURL() string {
 func main() {
 	vlURL := resolveVLURL()
 	c := vl.New(vlURL, 30*time.Second)
+	if u := os.Getenv("VL_USERNAME"); u != "" {
+		c = vl.NewWithAuth(vlURL, 30*time.Second, u, os.Getenv("VL_PASSWORD"))
+	}
 	if err := c.Ping(context.Background()); err != nil {
 		log.Fatalf("VictoriaLogs 不可達(%s): %v", vlURL, err)
 	}
