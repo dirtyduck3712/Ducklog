@@ -41,6 +41,12 @@ victoria-logs-prod -storageDataPath=./data/victoria-logs \
   -retentionPeriod=30d -httpListenAddr=127.0.0.1:9428
 ```
 
+開 Basic Auth（選用）:
+
+    victoria-logs-prod -storageDataPath=./data/victoria-logs \
+      -retentionPeriod=30d -httpListenAddr=127.0.0.1:9428 \
+      -httpAuth.username=admin -httpAuth.password=secret
+
 內建 web UI（vmui）: <http://127.0.0.1:9428/select/vmui>
 
 ### 2. 讓 app 送 log 進 VL
@@ -87,6 +93,8 @@ MCP server 目前只讀一個環境變數:
 | 變數 | 預設 | 作用 |
 | --- | --- | --- |
 | `VL_URL` | `http://127.0.0.1:9428` | 要連的 VictoriaLogs 位址 |
+| `VL_USERNAME` | （空） | VL 開 Basic Auth 時的使用者;空則不帶 auth |
+| `VL_PASSWORD` | （空） | VL Basic Auth 密碼 |
 
 啟動時會 Ping VL,不可達則 fail fast。查詢 timeout 目前硬編 30s。
 
@@ -109,7 +117,9 @@ tokens）；超量時**明確降級**（full → 抽樣 → count-only）並標 
 ## 已知限制（v1）
 
 - **兩個 process**: VL + MCP server,兩者都是低運維的單一執行檔。
-- **無 auth**: 靠受信任的網路 —— 把 VL 綁在 localhost（或內網），不要對外曝露。
+- **Basic Auth（選用）**: VL 以 `-httpAuth.username/-httpAuth.password` 開一組共享 Basic Auth（涵蓋 ingest 與 query）。寫入端設 `RemoteConfig.Username/Password`,MCP 端設 `VL_USERNAME/VL_PASSWORD`。三端留空則維持無 auth。
+  未開 auth 時仍請把 VL 綁 localhost / 內網,勿對外曝露。
+- **caveat**: Basic Auth 在純 HTTP 上是 base64、非加密;請在受信任網段使用,需端到端加密再開 VL `-tls`。
 - **MCP 只有 stdio transport**: 由 Claude Code 本機啟動,無遠端 / HTTP MCP。
 
 ## 開發

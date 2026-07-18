@@ -17,8 +17,9 @@ NDJSON 與它原生相容,transport 程式碼不需改,只需設定 `Endpoint`:
 ```go
 h := client.NewRemoteHandler(client.RemoteConfig{
     Endpoint: "http://<vl-host>:9428/insert/jsonline?_time_field=ts&_msg_field=message&_stream_fields=service",
-    APIKey:   "", // VL OSS 無 auth
     Service:  "my-service",
+    // VL 開了 -httpAuth.* 時填 Basic Auth 憑證;VL 無 auth 則留空:
+    // Username: "ingester", Password: "...",
 })
 log := slog.New(h)
 defer h.Close()

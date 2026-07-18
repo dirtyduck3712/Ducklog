@@ -45,7 +45,7 @@ func (f *fakeServer) handler() http.Handler {
 }
 
 func cfgFor(url string) RemoteConfig {
-	return RemoteConfig{Endpoint: url, APIKey: "k", Service: "api",
+	return RemoteConfig{Endpoint: url, Service: "api",
 		BatchSize: 2, FlushInterval: 10 * time.Millisecond, QueueSize: 100,
 		Fallback: io.Discard}.withDefaults()
 }
@@ -116,5 +116,54 @@ func TestSenderRetriesThenBreakerOpens(t *testing.T) {
 	// 每批失敗都應有重試(sleep 被呼叫);且熔斷 open 後應停止再打 server。
 	if atomic.LoadInt32(&sleeps) == 0 {
 		t.Fatal("失敗應觸發重試退避 sleep")
+	}
+}
+
+func TestSenderSendsBasicAuthWhenConfigured(t *testing.T) {
+	var mu sync.Mutex
+	var gotAuth string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		gotAuth = r.Header.Get("Authorization")
+		mu.Unlock()
+		w.WriteHeader(200)
+	}))
+	defer srv.Close()
+
+	cfg := cfgFor(srv.URL)
+	cfg.Username = "u"
+	cfg.Password = "p"
+	s := newSender(cfg, func(time.Duration) {}, time.Now)
+	s.start()
+	s.enqueue(entry{Service: "api", Level: "info", Message: "x"})
+	s.close()
+
+	mu.Lock()
+	defer mu.Unlock()
+	if gotAuth != "Basic dTpw" { // base64("u:p")
+		t.Fatalf("Authorization = %q; want %q", gotAuth, "Basic dTpw")
+	}
+}
+
+func TestSenderNoAuthHeaderWhenUnset(t *testing.T) {
+	var mu sync.Mutex
+	var gotAuth string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		gotAuth = r.Header.Get("Authorization")
+		mu.Unlock()
+		w.WriteHeader(200)
+	}))
+	defer srv.Close()
+
+	s := newSender(cfgFor(srv.URL), func(time.Duration) {}, time.Now) // 無憑證
+	s.start()
+	s.enqueue(entry{Service: "api", Level: "info", Message: "x"})
+	s.close()
+
+	mu.Lock()
+	defer mu.Unlock()
+	if gotAuth != "" {
+		t.Fatalf("未設憑證不應帶 Authorization,got %q", gotAuth)
 	}
 }

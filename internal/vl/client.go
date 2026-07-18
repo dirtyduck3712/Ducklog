@@ -16,14 +16,31 @@ import (
 type Client struct {
 	base string
 	hc   *http.Client
+	user string
+	pass string
 }
 
 func New(baseURL string, timeout time.Duration) *Client {
 	return &Client{base: strings.TrimRight(baseURL, "/"), hc: &http.Client{Timeout: timeout}}
 }
 
+// NewWithAuth 同 New,但每個請求附 HTTP Basic Auth(VL 開了 -httpAuth.* 時用)。
+func NewWithAuth(baseURL string, timeout time.Duration, user, pass string) *Client {
+	c := New(baseURL, timeout)
+	c.user, c.pass = user, pass
+	return c
+}
+
+// auth 在有設憑證時為 request 附上 Basic Auth。
+func (c *Client) auth(req *http.Request) {
+	if c.user != "" {
+		req.SetBasicAuth(c.user, c.pass)
+	}
+}
+
 func (c *Client) Ping(ctx context.Context) error {
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, c.base+"/health", nil)
+	c.auth(req)
 	resp, err := c.hc.Do(req)
 	if err != nil {
 		return err
@@ -41,6 +58,7 @@ func (c *Client) Query(ctx context.Context, logsql string, limit int) ([]map[str
 		v.Set("limit", strconv.Itoa(limit))
 	}
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, c.base+"/select/logsql/query?"+v.Encode(), nil)
+	c.auth(req)
 	resp, err := c.hc.Do(req)
 	if err != nil {
 		return nil, err
