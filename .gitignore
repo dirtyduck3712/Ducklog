@@ -6,3 +6,5 @@ data/
 *.ducklake
 *.ducklake.wal
 crashbin
+.env
+alertmanager/alertmanager.yml
