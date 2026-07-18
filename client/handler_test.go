@@ -31,7 +31,7 @@ func TestHandlerDualWritesAndTrace(t *testing.T) {
 	defer srv.Close()
 	var fallback bytes.Buffer
 	h := NewRemoteHandler(RemoteConfig{
-		Endpoint: srv.URL, APIKey: "k", Service: "api",
+		Endpoint: srv.URL, Service: "api",
 		BatchSize: 1, FlushInterval: 5 * time.Millisecond, Fallback: &fallback,
 	})
 	log := slog.New(h)

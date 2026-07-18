@@ -42,7 +42,6 @@ func TestEndToEndWireContract(t *testing.T) {
 
 	h := NewRemoteHandler(RemoteConfig{
 		Endpoint:      endpoint,
-		APIKey:        "", // VL OSS 無 auth
 		Service:       "e2e",
 		Level:         slog.LevelDebug,
 		FlushInterval: 50 * time.Millisecond,

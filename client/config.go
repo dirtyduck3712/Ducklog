@@ -8,13 +8,15 @@ import (
 	"time"
 )
 
-// RemoteConfig 設定 RemoteHandler。只有 Endpoint/APIKey/Service 通常必填,其餘有預設。
+// RemoteConfig 設定 RemoteHandler。只有 Endpoint/Service 通常必填,其餘有預設。
 type RemoteConfig struct {
 	// Endpoint 是 POST 目的地。指向 VictoriaLogs 時用 jsonline ingest 並附欄位映射:
 	//   http://<vl-host>:9428/insert/jsonline?_time_field=ts&_msg_field=message&_stream_fields=service
-	// VL OSS 無 auth,APIKey 留空即可。
-	Endpoint      string        // 例:http://vl:9428/insert/jsonline?_time_field=ts&_msg_field=message&_stream_fields=service
-	APIKey        string        // Bearer(ingest scope)
+	Endpoint string // 例:http://vl:9428/insert/jsonline?_time_field=ts&_msg_field=message&_stream_fields=service
+	// Username/Password:VL 開了 -httpAuth.* 時的 Basic Auth 憑證;
+	// 留空(VL 無 auth)則不帶 Authorization header。
+	Username      string
+	Password      string
 	Service       string        // 本服務名稱
 	Level         slog.Leveler  // 最低等級,預設 Info
 	BatchSize     int           // 預設 100

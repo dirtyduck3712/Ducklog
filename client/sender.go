@@ -128,7 +128,9 @@ func (s *sender) post(payload []byte) bool {
 	if err != nil {
 		return false
 	}
-	req.Header.Set("Authorization", "Bearer "+s.cfg.APIKey)
+	if s.cfg.Username != "" {
+		req.SetBasicAuth(s.cfg.Username, s.cfg.Password)
+	}
 	req.Header.Set("Content-Type", "application/x-ndjson")
 	resp, err := s.cfg.HTTPClient.Do(req)
 	if err != nil {
