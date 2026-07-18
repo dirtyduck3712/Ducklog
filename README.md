@@ -123,6 +123,8 @@ tokens）；超量時**明確降級**（full → 抽樣 → count-only）並標 
 3. 起 stack:`docker compose --env-file .env -f docker-compose.alert.yml up -d`
 4. rule 在 `alert-rules/`(門檻/關鍵字/interval 改這裡即可,不需重建 image)。
 
+⚠️ `alert-rules/` 只應放合法的 vmalert rule YAML:vmalert 以 glob `*.yml` 載入,任何一個非法 rule 檔會讓 vmalert 無法啟動、拖垮所有告警(不只該檔)。
+
 **Rule 集**:`HighErrorRate`(每 service 1m error 數 > 50,固定門檻非突增)、`FatalPattern`(panic/OOM/SIGSEGV 出現即報)。
 
 **端到端自測**:`scripts/test-alert-e2e.sh`(驗 ingest → firing → webhook)。

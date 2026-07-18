@@ -110,9 +110,18 @@ if [[ "$DEAD_FIRING" != 1 ]]; then
   kill_alive; exit 1
 fi
 
-# 對照:此刻 alive 背景仍在跑、窗內有 log → alive 不該 firing(在 kill alive 之前查,最穩)
-if echo "$(firing)" | grep -q 'alive'; then
-  echo "FAIL: alive 窗內有 log 卻 firing(對照失敗)。firing=$(firing) VL alive _time:1m=$(vl_count 'service:=alive _time:1m')"
+# 對照:此刻 alive 背景仍在跑、窗內有 log → alive 不該 firing(在 kill alive 之前查,最穩)。
+# fail-closed:firing() 若回 ERR(curl/JSON 失敗)視為未就緒 → 重試;連續失敗即真 FAIL,不當「無 alive」通過。
+f=ERR
+for i in $(seq 1 5); do
+  f=$(firing); [[ "$f" != ERR ]] && break; sleep 3
+done
+if [[ "$f" == ERR ]]; then
+  echo "FAIL: alive 對照查詢連續失敗(firing=ERR),無法確認 alive 狀態"
+  kill_alive; exit 1
+fi
+if echo "$f" | grep -q 'alive'; then
+  echo "FAIL: alive 窗內有 log 卻 firing(對照失敗)。firing=$f VL alive _time:1m=$(vl_count 'service:=alive _time:1m')"
   echo "===DEBUG alerts==="; curl -s --max-time 5 "$AM" | python3 -m json.tool 2>/dev/null || true
   kill_alive; exit 1
 fi
