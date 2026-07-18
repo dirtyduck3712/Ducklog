@@ -114,6 +114,12 @@ func jsonSafe(v slog.Value) any {
 	if v.Kind() != slog.KindAny {
 		return a // 基本型別(字串/數字/bool/時間/Duration)一定可序列化
 	}
+	// error 值 json.Marshal 會「成功」但產出 {}(無 exported fields),VL 攤平
+	// 空物件後欄位整個消失 —— slog.Warn("x", "err", err) 的 err 就這樣不見。
+	// 必須在 marshal 檢查前先轉字串。
+	if e, ok := a.(error); ok {
+		return e.Error()
+	}
 	if _, err := json.Marshal(a); err != nil {
 		return fmt.Sprintf("%+v", a)
 	}

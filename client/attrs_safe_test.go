@@ -2,6 +2,7 @@ package client
 
 import (
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"testing"
 )
@@ -34,6 +35,20 @@ func TestFlattenAttrCoercesNonSerializable(t *testing.T) {
 				t.Fatalf("非序列化值應轉成字串,得 %T", dst["k"])
 			}
 		})
+	}
+}
+
+// error 值 json.Marshal 會「成功」但產出 {}(無 exported fields);攤平後 VL
+// 把空物件欄位整個丟掉,slog 慣用的 "err", err 就消失了。必須轉成 Error() 字串。
+func TestFlattenAttrStringifiesError(t *testing.T) {
+	dst := map[string]any{}
+	flattenAttr(dst, "", slog.Any("err", errors.New("boom: connection refused")))
+	got, ok := dst["err"].(string)
+	if !ok {
+		t.Fatalf("error attr 應轉成字串,得 %T (%v)", dst["err"], dst["err"])
+	}
+	if got != "boom: connection refused" {
+		t.Fatalf("err = %q, want Error() 全文", got)
 	}
 }
 
