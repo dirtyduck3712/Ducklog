@@ -9,22 +9,19 @@
 
 ## 0. 先讓你的專案抓得到 ducklog（模組解析)
 
-ducklog 目前**未發佈到 git remote**,所以無法 `go get`。兩種接法:
+ducklog 的 transport 模組已發佈在公開 repo,直接 `go get`:
+```
+go get github.com/dirtyduck3712/ducklog/client@latest
+```
+用 zap 的服務再加:
+```
+go get github.com/dirtyduck3712/ducklog/zapsink@latest
+```
+import 用完整路徑(見下方各節)。
 
-**A. 本機 replace(最快,只在你這台機器有效)** —— 在你服務的 `go.mod`:
-```
-require ducklog/client v0.0.0
-replace ducklog/client => /path/to/ducklog/client
-```
-zap 服務再加:
-```
-require ducklog/zapsink v0.0.0
-replace ducklog/zapsink => /path/to/ducklog/zapsink
-```
+> Go 版本:`client` 需 Go ≥ 1.22、`zapsink` 需 Go ≥ 1.24。
 
-**B. 發佈後(團隊/CI/正式環境要用這個)** —— 把 ducklog push 到你們的 git,把模組路徑改成真實網址(如 `github.com/yourorg/ducklog/client`),用版本化 `require`、拿掉 local replace。
-
-> ⚠️ 本機 `replace` 指向絕對路徑,**別人/CI 的機器上不存在 → build 會失敗**。要跨機器一定得走 B。
+> 本機開發 ducklog 自身時,zapsink 以 `replace => ../client` 連本地 client;這只影響 repo 內開發,不影響 `go get` 的消費者。
 
 ---
 
@@ -33,7 +30,7 @@ replace ducklog/zapsink => /path/to/ducklog/zapsink
 ducklog 的 transport 本身就是一個 `slog.Handler`。在服務啟動處:
 
 ```go
-import "ducklog/client"
+import "github.com/dirtyduck3712/ducklog/client"
 
 if vlURL := os.Getenv("DUCKLOG_VL_URL"); vlURL != "" {
     h := client.NewRemoteHandler(client.RemoteConfig{
@@ -51,12 +48,12 @@ if vlURL := os.Getenv("DUCKLOG_VL_URL"); vlURL != "" {
 
 ## 2. 服務用 `go.uber.org/zap`
 
-zap 與 slog 是不同介面,用 `ducklog/zapsink` 這個轉接橋。若你用 `zap.Config.Build`:
+zap 與 slog 是不同介面,用 `github.com/dirtyduck3712/ducklog/zapsink` 這個轉接橋。若你用 `zap.Config.Build`:
 
 ```go
 import (
-    "ducklog/client"
-    "ducklog/zapsink"
+    "github.com/dirtyduck3712/ducklog/client"
+    "github.com/dirtyduck3712/ducklog/zapsink"
     "go.uber.org/zap"
     "go.uber.org/zap/zapcore"
 )
@@ -130,7 +127,7 @@ claude mcp add ducklog --env VL_URL=http://127.0.0.1:9428 -- ~/bin/ducklog-mcp
 |---|---|
 | vmui 看不到 log | 時間範圍預設 5 分鐘 → 拉大(見 §4) |
 | 手動 curl 回 200 但查不到 | 少了 `Content-Type: application/x-ndjson`(見 §4) |
-| 別人 build 失敗 `cannot find module ducklog/client` | 本機 replace 只在你機器有效 → 要發佈(見 §0-B) |
+| 別人 build 失敗 `cannot find module github.com/dirtyduck3712/ducklog/client` | 用 `go get github.com/dirtyduck3712/ducklog/client@latest`(見 §0),別用本機 replace |
 | 巢狀 `attrs` 查不到 | VL 會攤平成 dot 欄位:`attrs={"host":"x"}` → 查 `attrs.host:="x"` |
 | log 有函式/連線物件等欄位 | transport 已自動把不可序列化的 attr 值轉字串,不會丟批(v1 已修) |
 | zap Fatal 後最後一筆沒進 | Fatal=os.Exit 跳過 defer;shutdown 改走 graceful |

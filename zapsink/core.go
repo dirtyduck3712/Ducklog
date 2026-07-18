@@ -8,7 +8,7 @@ import (
 	"context"
 	"log/slog"
 
-	"ducklog/client"
+	"github.com/dirtyduck3712/ducklog/client"
 
 	"go.uber.org/zap/zapcore"
 )

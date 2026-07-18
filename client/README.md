@@ -3,6 +3,8 @@
 純 stdlib 的 Go 傳輸層:一個 `slog.Handler`,把 log record 以 NDJSON
 (每行一個 JSON 物件)POST 到後端,並支援 trace ID 傳遞。
 
+安裝:`go get github.com/dirtyduck3712/ducklog/client@latest`,import path 為 `github.com/dirtyduck3712/ducklog/client`。
+
 Wire 格式(每行):
 
 ```json
