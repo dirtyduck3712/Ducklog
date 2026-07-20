@@ -49,6 +49,7 @@ services:
       - --config.file=/etc/alertmanager/alertmanager.yml
     volumes:
       - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./alertmanager/templates:/etc/alertmanager/templates:ro
     ports:
       - "127.0.0.1:19093:9093"
 
