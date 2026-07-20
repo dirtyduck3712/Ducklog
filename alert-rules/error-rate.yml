@@ -10,4 +10,4 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: '{{ index .Labels "service" }}: {{ $value }} errors in 1m window'
+          summary: 'service {{ index .Labels "service" }} 在 1 分鐘視窗內有 {{ $value }} 筆 error,超過門檻 50'

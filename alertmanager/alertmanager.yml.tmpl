@@ -1,3 +1,5 @@
+templates:
+  - /etc/alertmanager/templates/*.tmpl
 route:
   receiver: ducklog-default
   group_by: [alertname, service]
@@ -13,4 +15,5 @@ receivers:
       - bot_token: ${DUCKLOG_TELEGRAM_BOT_TOKEN}
         chat_id: ${DUCKLOG_TELEGRAM_CHAT_ID}
         parse_mode: HTML
+        message: '{{ template "ducklog.telegram" . }}'
         send_resolved: true

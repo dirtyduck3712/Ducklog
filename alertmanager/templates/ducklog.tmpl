@@ -1,0 +1,18 @@
+{{/* ducklog Telegram 通知模板(正體中文)。 */}}
+
+{{/* parse_mode: HTML 時,alertmanager 的 telegram notifier 走 TmplHTML →
+     ExecuteHTMLString → Go html/template,對 {{ }} 帶出的值已自動做 contextual
+     escaping。這裡千萬不要再手動跳脫(reReplaceAll & < >),否則雙重跳脫,
+     訊息會顯示成字面的 &lt; &amp;(實測踩過)。
+     模板文字裡的 <b> 是靜態內容,不受自動跳脫影響。 */}}
+{{ define "ducklog.telegram" -}}
+{{ if eq .Status "firing" }}🔴 <b>告警觸發</b>{{ else }}✅ <b>告警解除</b>{{ end }}({{ .Alerts | len }} 則)
+{{ range .Alerts }}
+<b>規則</b>:{{ .Labels.alertname }}
+<b>嚴重度</b>:{{ .Labels.severity }}
+{{ if .Labels.service }}<b>服務</b>:{{ .Labels.service }}
+{{ end }}<b>說明</b>:{{ .Annotations.summary }}
+<b>開始</b>:{{ .StartsAt.Format "2006-01-02 15:04:05 MST" }}
+{{ if eq .Status "resolved" }}<b>解除</b>:{{ .EndsAt.Format "2006-01-02 15:04:05 MST" }}
+{{ end }}{{ end }}
+{{- end }}

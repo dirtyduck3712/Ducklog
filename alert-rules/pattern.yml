@@ -10,4 +10,4 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: '{{ $value }} fatal-pattern hits in last 1m'
+          summary: '最近 1 分鐘內出現 {{ $value }} 次致命關鍵字(panic / out of memory / SIGSEGV)'
