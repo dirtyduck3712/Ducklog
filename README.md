@@ -129,10 +129,20 @@ tokens）；超量時**明確降級**（full → 抽樣 → count-only）並標 
 
 **端到端自測**:`scripts/test-alert-e2e.sh`(驗 ingest → firing → webhook)。
 
-**Telegram 手動驗收清單**(不進自動測試):
-- [ ] Telegram 真的收到告警訊息
-- [ ] 告警解除時 `send_resolved` 通知會來
-- [ ] VL 開 Basic Auth 時 vmalert 仍能查 VL(`/api/v1/rules` 有 group)
+**Telegram 手動驗收清單**(不進自動測試;2026-07-20 實測全數通過):
+- [x] Telegram 真的收到告警訊息
+- [x] 告警解除時 `send_resolved` 通知會來
+- [x] VL 開 Basic Auth 時 vmalert 仍能查 VL
+
+⚠️ 驗最後一項別只看 `/api/v1/rules` 有沒有 group——rule 是從磁碟載入的,與 datasource 認證無關,vmalert 查 VL 全數 401 時 group 照樣出現。正確驗法:先確立 auth 真的開著(無憑證打 VL `/select` 應 401、帶憑證應 200;`/health` 不受 `-httpAuth` 保護,拿它驗會假綠),再看 vmalert rule 的 `lastError` 為空 + 端到端真的 firing。
+
+### 通知訊息格式
+
+Telegram 訊息用 `alertmanager/templates/ducklog.tmpl`(正體中文),於 `alertmanager.yml.tmpl` 以 `message: '{{ template "ducklog.telegram" . }}'` 指定。改格式編輯該檔即可,不需重建 image(重啟 alertmanager 重讀)。
+
+⚠️ `parse_mode: HTML` 下,alertmanager 的 telegram notifier 走 `TmplHTML` → Go `html/template`,對 `{{ }}` 帶出的值**已自動跳脫**。模板裡不可再手動跳脫 `& < >`,否則雙重跳脫,訊息顯示成字面的 `&lt;` `&amp;`。
+
+⚠️ `alertmanager_notifications_failed_total` 全 0 **證明不了訊息渲染正確**——雙重跳脫仍是合法 HTML,Telegram 照收、metrics 全綠但輸出是壞的。要驗渲染得攔原始 payload:把 `telegram_config.api_url` 暫時指向本機 sink(`scripts/webhook-sink.py` 會把 POST body 原樣寫檔),再對 `text` 欄位做斷言。
 
 ### service 靜默偵測
 
